@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useLogStore } from '@application/stores/logStore';
 import { useWindowStore } from '@application/stores/windowStore';
 import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
 import { useTheme } from '@presentation/composables/useTheme';
-import ThemeToggle from '@presentation/components/common/ThemeToggle.vue';
+import { useSearch } from '@presentation/composables/useSearch';
+import { ThemeToggle, FileDropZone } from '@presentation/components/common';
 import { LogLine } from '@presentation/components/log-viewer';
+import { SearchBar, LogLevelFilter } from '@presentation/components/search';
 
 const logStore = useLogStore();
 const windowStore = useWindowStore();
 
-// Initialize theme
+// Initialize theme and search
 useTheme();
+const { filterEntries, isFiltering, resetAll } = useSearch();
+
+const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
+
+// Filtered entries based on search and level filters
+const filteredEntries = computed(() => filterEntries(logStore.activeEntries));
 
 onMounted(async () => {
   await logStore.initialize();
@@ -94,11 +102,28 @@ async function handleAddLogFolder() {
 // Set up keyboard shortcuts (after functions are defined)
 useKeyboardShortcuts({
   onAddNew: handleAddLogFile,
+  onSearch: () => searchBarRef.value?.focus(),
 });
+
+/**
+ * Handle files dropped onto the application.
+ */
+async function handleFileDrop(paths: string[]) {
+  for (const path of paths) {
+    try {
+      await logStore.addFile(path);
+    } catch (error) {
+      console.error(`Failed to add dropped file: ${path}`, error);
+    }
+  }
+}
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950">
+  <FileDropZone
+    class="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950"
+    @drop="handleFileDrop"
+  >
     <!-- Header -->
     <header
       class="bg-surface-100 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700 px-4 py-3"
@@ -191,6 +216,26 @@ useKeyboardShortcuts({
 
       <!-- Log Viewer -->
       <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Search and filter toolbar -->
+        <div
+          v-if="logStore.activeSource"
+          class="border-b border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900 px-4 py-2"
+        >
+          <div class="flex items-center gap-4">
+            <div class="flex-1 max-w-md">
+              <SearchBar ref="searchBarRef" placeholder="Search logs... (Ctrl+F)" />
+            </div>
+            <LogLevelFilter />
+            <button
+              v-if="isFiltering"
+              class="text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"
+              @click="resetAll"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+
         <!-- Log entries -->
         <div v-if="logStore.activeSource" class="flex-1 overflow-auto">
           <div
@@ -200,8 +245,15 @@ useKeyboardShortcuts({
             No log entries yet. Waiting for new content...
           </div>
 
+          <div
+            v-else-if="filteredEntries.length === 0"
+            class="flex items-center justify-center h-full text-surface-500 dark:text-surface-400"
+          >
+            No entries match current filters
+          </div>
+
           <div v-else>
-            <LogLine v-for="entry in logStore.activeEntries" :key="entry.id" :entry="entry" />
+            <LogLine v-for="entry in filteredEntries" :key="entry.id" :entry="entry" />
           </div>
         </div>
 
@@ -229,12 +281,17 @@ useKeyboardShortcuts({
       class="bg-surface-100 dark:bg-surface-900 border-t border-surface-200 dark:border-surface-700 px-4 py-1 text-xs text-surface-500 dark:text-surface-400"
     >
       <div class="flex items-center justify-between">
-        <span v-if="logStore.activeSource"> {{ logStore.activeEntries.length }} entries </span>
+        <span v-if="logStore.activeSource">
+          <span v-if="isFiltering">
+            {{ filteredEntries.length }} / {{ logStore.activeEntries.length }} entries (filtered)
+          </span>
+          <span v-else> {{ logStore.activeEntries.length }} entries </span>
+        </span>
         <span v-else>Ready</span>
         <span v-if="logStore.error" class="text-red-500">
           {{ logStore.error }}
         </span>
       </div>
     </footer>
-  </div>
+  </FileDropZone>
 </template>

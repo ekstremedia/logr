@@ -12,8 +12,10 @@ import { useWindowStore } from '@application/stores/windowStore';
 import { WindowApi } from '@infrastructure/tauri';
 import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
 import { useTheme } from '@presentation/composables/useTheme';
+import { useSearch } from '@presentation/composables/useSearch';
 import ThemeToggle from '@presentation/components/common/ThemeToggle.vue';
 import { LogLine } from '@presentation/components/log-viewer';
+import { SearchBar, LogLevelFilter } from '@presentation/components/search';
 
 const props = defineProps<{
   sourceId: string;
@@ -22,9 +24,15 @@ const props = defineProps<{
 const logStore = useLogStore();
 const windowStore = useWindowStore();
 
-// Set up keyboard shortcuts and theme
-useKeyboardShortcuts();
+// Set up theme and search
 useTheme();
+const { filterEntries, isFiltering, resetAll } = useSearch();
+const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
+
+// Set up keyboard shortcuts
+useKeyboardShortcuts({
+  onSearch: () => searchBarRef.value?.focus(),
+});
 
 // Auto-scroll state
 const autoScroll = ref(true);
@@ -44,6 +52,9 @@ const source = computed(() => {
 const entries = computed(() => {
   return logStore.entries.get(props.sourceId) ?? [];
 });
+
+// Filtered entries based on search and level filters
+const filteredEntries = computed(() => filterEntries(entries.value));
 
 // Initialize stores
 onMounted(async () => {
@@ -150,6 +161,25 @@ async function handleFocusMain() {
       </div>
     </header>
 
+    <!-- Search and filter toolbar -->
+    <div
+      class="border-b border-surface-200 dark:border-surface-700 bg-surface-50 dark:bg-surface-900 px-4 py-2"
+    >
+      <div class="flex items-center gap-4">
+        <div class="flex-1 max-w-md">
+          <SearchBar ref="searchBarRef" placeholder="Search logs... (Ctrl+F)" />
+        </div>
+        <LogLevelFilter />
+        <button
+          v-if="isFiltering"
+          class="text-xs text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"
+          @click="resetAll"
+        >
+          Clear filters
+        </button>
+      </div>
+    </div>
+
     <!-- Log entries -->
     <div ref="logContainer" class="flex-1 overflow-auto" @scroll="handleScroll">
       <div
@@ -159,8 +189,15 @@ async function handleFocusMain() {
         No log entries yet. Waiting for new content...
       </div>
 
+      <div
+        v-else-if="filteredEntries.length === 0"
+        class="flex items-center justify-center h-full text-surface-500 dark:text-surface-400"
+      >
+        No entries match current filters
+      </div>
+
       <div v-else>
-        <LogLine v-for="entry in entries" :key="entry.id" :entry="entry" />
+        <LogLine v-for="entry in filteredEntries" :key="entry.id" :entry="entry" />
       </div>
     </div>
 
@@ -169,7 +206,12 @@ async function handleFocusMain() {
       class="bg-surface-100 dark:bg-surface-900 border-t border-surface-200 dark:border-surface-700 px-4 py-1 text-xs text-surface-500 dark:text-surface-400"
     >
       <div class="flex items-center justify-between">
-        <span>{{ entries.length }} entries</span>
+        <span>
+          <span v-if="isFiltering">
+            {{ filteredEntries.length }} / {{ entries.length }} entries (filtered)
+          </span>
+          <span v-else> {{ entries.length }} entries </span>
+        </span>
         <div class="flex items-center gap-3">
           <span
             v-if="!autoScroll"

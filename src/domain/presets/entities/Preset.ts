@@ -103,7 +103,7 @@ export class Preset {
     return this.sources.length === 0;
   }
 
-  private toProps(): PresetProps {
+  toProps(): PresetProps {
     return {
       id: this.id,
       name: this.name,

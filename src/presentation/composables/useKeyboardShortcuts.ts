@@ -18,6 +18,11 @@ export interface KeyboardShortcutsOptions {
    * Only called in main window.
    */
   onAddNew?: () => void;
+
+  /**
+   * Callback when Cmd/Ctrl+F is pressed (search).
+   */
+  onSearch?: () => void;
 }
 
 /**
@@ -55,6 +60,15 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}) {
       if (WindowApi.isMainWindow() && options.onAddNew) {
         event.preventDefault();
         options.onAddNew();
+        return;
+      }
+    }
+
+    // Cmd/Ctrl + F: Focus search
+    if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+      if (options.onSearch) {
+        event.preventDefault();
+        options.onSearch();
         return;
       }
     }
