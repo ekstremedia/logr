@@ -1,6 +1,12 @@
 # Format and lint staged frontend files
 npx lint-staged
 
+# Type check frontend if any TS/Vue files are staged
+if git diff --cached --name-only | grep -qE "\.(ts|tsx|vue)$"; then
+  echo "Running TypeScript type check..."
+  npx vue-tsc --noEmit || exit 1
+fi
+
 # Format Rust code if any Rust files are staged
 if git diff --cached --name-only | grep -q "^src-tauri/"; then
   echo "Formatting Rust code..."

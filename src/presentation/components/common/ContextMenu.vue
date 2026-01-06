@@ -7,7 +7,7 @@ export interface MenuItem {
   disabled?: boolean;
 }
 
-const props = defineProps<{
+defineProps<{
   items: MenuItem[];
 }>();
 
@@ -35,7 +35,7 @@ function handleClick(item: MenuItem) {
   }
 }
 
-function handleClickOutside(event: MouseEvent) {
+function handleClickOutside(_event: MouseEvent) {
   hide();
 }
 
