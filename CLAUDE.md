@@ -80,6 +80,9 @@ triggerRef(entries);  // Required for computed properties to update
 - Add File modal with text input (paste path) + file browser
 - Unread indicator (red dot) on sources with new entries
 - Clickable stacktrace file paths (opens in configured IDE)
+- Formatted/Raw log view toggle (per-source, saved to workspace)
+- Auto-scroll toggle (per-source, saved to workspace)
+- Workspace overwrite confirmation when saving with existing name
 
 ### Backend State Management
 The `LogWatcherState` manages:
@@ -121,6 +124,8 @@ The `LogWatcherState` manages:
 | `src/presentation/components/common/RenameInput.vue` | Source rename input with suggestions |
 | `src/presentation/components/common/SettingsModal.vue` | Settings dialog (IDE config) |
 | `src/domain/log-watching/entities/LogSource.ts` | Log source entity with name suggestions |
+| `src/infrastructure/storage/localStorageService.ts` | Session/workspace persistence |
+| `src/presentation/components/log-viewer/LogLine.vue` | Log entry display (formatted/raw) |
 
 ## MCP Bridge Plugin (for Claude Code)
 
@@ -171,4 +176,4 @@ cd src-tauri && cargo test
 ```
 
 ## Last Updated
-2026-01-06
+2026-01-07

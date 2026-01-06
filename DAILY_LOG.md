@@ -1,5 +1,67 @@
 # Daily Development Log
 
+## 2026-01-07
+
+### Session Summary
+Added per-source view preferences (formatted/raw toggle, auto-scroll) that persist to workspaces, workspace overwrite confirmation, and improved raw log view to show full stack traces.
+
+### Features Added
+
+#### 1. Formatted/Raw Log Toggle (Per-Source)
+- New toggle button in log viewer header to switch between formatted and raw views
+- **Formatted mode:** Shows parsed timestamp, level badge, message, expandable stack traces
+- **Raw mode:** Shows complete raw log content including full stack traces
+- Setting is per-source and saved to workspace
+- **Files:**
+  - `src/presentation/components/log-viewer/LogLine.vue` - Added `showFormatted` prop and `fullRawContent` computed
+  - `src/application/stores/logStore.ts` - Added `sourceFormatted` Map, `isFormatted()`, `setFormatted()`
+  - `src/infrastructure/storage/localStorageService.ts` - Added `showFormatted` to `SessionSourceData`
+  - `src/App.vue` - Added toggle button and integration
+
+#### 2. Auto-Scroll Per-Source
+- Auto-scroll setting is now per-source instead of global
+- Setting persists to workspace
+- **Files:**
+  - `src/application/stores/logStore.ts` - Added `sourceAutoScroll` Map, `isAutoScroll()`, `setAutoScroll()`
+  - `src/infrastructure/storage/localStorageService.ts` - Added `autoScroll` to `SessionSourceData`
+  - `src/App.vue` - Changed from `ref` to `computed` reading from store
+
+#### 3. Workspace Overwrite Confirmation
+- When "Save As..." uses an existing workspace name, prompts for confirmation
+- Shows "Overwrite?" dialog with Cancel/Overwrite buttons
+- After overwrite, switches current session to the overwritten workspace
+- **Files:** `src/presentation/components/common/SessionManager.vue`
+
+#### 4. Raw View Shows Full Stack Trace
+- Previously raw mode only showed `entry.raw` (first line)
+- Now combines raw line + all stack trace lines for complete output
+- Copy button also copies full content
+- **Files:** `src/presentation/components/log-viewer/LogLine.vue` - Added `fullRawContent` computed
+
+#### 5. Stack Trace Overflow Fix
+- Fixed stack trace content overflowing its container
+- Added `overflow-x-auto`, `min-w-0`, `whitespace-pre-wrap break-all`
+- **Files:** `src/presentation/components/log-viewer/LogLine.vue`
+
+### Files Modified
+- `src/App.vue` - Per-source formatting/auto-scroll, toggle buttons
+- `src/application/stores/logStore.ts` - Per-source preferences with persistence
+- `src/infrastructure/storage/localStorageService.ts` - New `SessionSourceData` fields
+- `src/presentation/components/log-viewer/LogLine.vue` - Raw view, overflow fix
+- `src/presentation/components/common/SessionManager.vue` - Overwrite confirmation
+
+### Tests Added
+- `src/infrastructure/storage/__tests__/localStorageService.test.ts`:
+  - Test for `showFormatted` and `autoScroll` persistence in sessions
+  - Test for preferences in named sessions
+
+### Technical Notes
+- Per-source state uses `Map<string, boolean>` with `triggerRef()` for Vue reactivity
+- Settings default to `true` when not explicitly set (`!== false` check)
+- Vite HMR can cause webview to crash when changing reactive state types; restart dev server
+
+---
+
 ## 2026-01-06 (Continued)
 
 ### Session Summary

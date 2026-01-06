@@ -57,6 +57,12 @@ export const useLogStore = defineStore('log', () => {
   // Using a Map for better Vue reactivity (Set changes aren't tracked automatically)
   const unreadSources = ref<Map<string, boolean>>(new Map());
 
+  // Track per-source formatting preference (default true = formatted)
+  const sourceFormatted = ref<Map<string, boolean>>(new Map());
+
+  // Track per-source auto-scroll preference (default true = enabled)
+  const sourceAutoScroll = ref<Map<string, boolean>>(new Map());
+
   // Event listeners
   const unlisteners = ref<UnlistenFn[]>([]);
 
@@ -269,6 +275,38 @@ export const useLogStore = defineStore('log', () => {
     return unreadSources.value.get(sourceId) === true;
   }
 
+  /**
+   * Check if a source should show formatted logs (default: true).
+   */
+  function isFormatted(sourceId: string): boolean {
+    return sourceFormatted.value.get(sourceId) !== false;
+  }
+
+  /**
+   * Set whether a source should show formatted logs.
+   */
+  function setFormatted(sourceId: string, formatted: boolean): void {
+    sourceFormatted.value.set(sourceId, formatted);
+    triggerRef(sourceFormatted);
+    saveSession();
+  }
+
+  /**
+   * Check if a source has auto-scroll enabled (default: true).
+   */
+  function isAutoScroll(sourceId: string): boolean {
+    return sourceAutoScroll.value.get(sourceId) !== false;
+  }
+
+  /**
+   * Set whether a source should auto-scroll.
+   */
+  function setAutoScroll(sourceId: string, enabled: boolean): void {
+    sourceAutoScroll.value.set(sourceId, enabled);
+    triggerRef(sourceAutoScroll);
+    saveSession();
+  }
+
   async function clearEntries(sourceId: string) {
     try {
       await LogApi.clearLogEntries(sourceId);
@@ -336,6 +374,8 @@ export const useLogStore = defineStore('log', () => {
       type: source.type,
       pattern: source.pattern ?? undefined,
       name: source.name,
+      showFormatted: sourceFormatted.value.get(source.id) !== false,
+      autoScroll: sourceAutoScroll.value.get(source.id) !== false,
     }));
 
     const activeSource = sources.value.get(activeSourceId.value ?? '');
@@ -365,9 +405,20 @@ export const useLogStore = defineStore('log', () => {
           source = await addFolder(sourceData.path, sourceData.pattern ?? '*.log', sourceData.name);
         }
 
-        // Track if this was the active source
-        if (source && sourceData.path === session.activeSourcePath) {
-          restoredActiveSourceId = source.id;
+        if (source) {
+          // Restore formatting preference (default to true if not specified)
+          if (sourceData.showFormatted === false) {
+            sourceFormatted.value.set(source.id, false);
+          }
+          // Restore auto-scroll preference (default to true if not specified)
+          if (sourceData.autoScroll === false) {
+            sourceAutoScroll.value.set(source.id, false);
+          }
+
+          // Track if this was the active source
+          if (sourceData.path === session.activeSourcePath) {
+            restoredActiveSourceId = source.id;
+          }
         }
       } catch (e) {
         console.warn(`Failed to restore source: ${sourceData.path}`, e);
@@ -405,6 +456,8 @@ export const useLogStore = defineStore('log', () => {
       type: source.type,
       pattern: source.pattern ?? undefined,
       name: source.name,
+      showFormatted: sourceFormatted.value.get(source.id) !== false,
+      autoScroll: sourceAutoScroll.value.get(source.id) !== false,
     }));
 
     const now = new Date().toISOString();
@@ -442,6 +495,8 @@ export const useLogStore = defineStore('log', () => {
       type: source.type,
       pattern: source.pattern ?? undefined,
       name: source.name,
+      showFormatted: sourceFormatted.value.get(source.id) !== false,
+      autoScroll: sourceAutoScroll.value.get(source.id) !== false,
     }));
 
     const updated: NamedSession = {
@@ -477,6 +532,8 @@ export const useLogStore = defineStore('log', () => {
     sources.value.clear();
     entries.value.clear();
     triggerRef(entries);
+    sourceFormatted.value.clear();
+    sourceAutoScroll.value.clear();
     activeSourceId.value = null;
     error.value = null;
     currentSessionId.value = null;
@@ -504,8 +561,18 @@ export const useLogStore = defineStore('log', () => {
         } else {
           source = await addFolder(sourceData.path, sourceData.pattern ?? '*.log', sourceData.name);
         }
-        if (source && !firstSourceId) {
-          firstSourceId = source.id;
+        if (source) {
+          // Restore formatting preference
+          if (sourceData.showFormatted === false) {
+            sourceFormatted.value.set(source.id, false);
+          }
+          // Restore auto-scroll preference
+          if (sourceData.autoScroll === false) {
+            sourceAutoScroll.value.set(source.id, false);
+          }
+          if (!firstSourceId) {
+            firstSourceId = source.id;
+          }
         }
       } catch (e) {
         console.warn(`Failed to load source: ${sourceData.path}`, e);
@@ -550,6 +617,10 @@ export const useLogStore = defineStore('log', () => {
     renameSource,
     getNameSuggestions,
     hasUnread,
+    isFormatted,
+    setFormatted,
+    isAutoScroll,
+    setAutoScroll,
 
     // Named session actions
     saveAsNamedSession,

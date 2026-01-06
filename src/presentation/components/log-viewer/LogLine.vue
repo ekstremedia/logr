@@ -18,7 +18,11 @@ import { useSettingsStore } from '@application/stores/settingsStore';
 const props = defineProps<{
   entry: LogEntry;
   showLineNumbers?: boolean;
+  showFormatted?: boolean;
 }>();
+
+// Default showFormatted to true
+const isFormatted = computed(() => props.showFormatted !== false);
 
 const emit = defineEmits<{
   (e: 'copy', text: string): void;
@@ -162,6 +166,17 @@ const formattedContext = computed(() => {
 });
 
 /**
+ * Full raw content including stack trace.
+ */
+const fullRawContent = computed(() => {
+  let content = props.entry.raw;
+  if (props.entry.hasStackTrace()) {
+    content += '\n' + props.entry.stackTrace.join('\n');
+  }
+  return content;
+});
+
+/**
  * Parse message and highlight URLs.
  */
 const messageSegments = computed(() => {
@@ -235,103 +250,127 @@ function toggleContext() {
   <div
     class="log-line group hover:bg-surface-100 dark:hover:bg-surface-800/50 border-b border-surface-100 dark:border-surface-800"
   >
-    <!-- Main log line -->
-    <div class="flex items-start gap-2 px-2 py-1.5">
-      <!-- Line number (optional) -->
+    <!-- Raw mode: simple monospace text -->
+    <div v-if="!isFormatted" class="flex items-start gap-2 px-2 py-1">
       <span
         v-if="showLineNumbers"
         class="w-12 text-right text-xs text-surface-400 dark:text-surface-600 font-mono select-none shrink-0"
       >
         {{ entry.lineNumber }}
       </span>
-
-      <!-- Timestamp -->
-      <span
-        class="w-20 text-xs text-surface-500 dark:text-surface-500 font-mono shrink-0"
-        :title="entry.timestamp?.toISOString() ?? 'No timestamp'"
+      <pre
+        class="flex-1 min-w-0 font-mono text-sm text-surface-800 dark:text-surface-200 whitespace-pre-wrap break-all"
+        >{{ fullRawContent }}</pre
       >
-        {{ formattedTime }}
-      </span>
-
-      <!-- Level badge -->
-      <div class="w-16 shrink-0">
-        <LogLevelBadge :level="entry.level" />
-      </div>
-
-      <!-- Message -->
-      <div class="flex-1 min-w-0 font-mono text-sm text-surface-800 dark:text-surface-200">
-        <span
-          v-for="(segment, index) in messageSegments"
-          :key="index"
-          :class="{
-            'text-blue-600 dark:text-blue-400 hover:underline cursor-pointer':
-              segment.type === 'url',
-          }"
-          @click="segment.type === 'url' && openUrl(segment.value)"
-        >
-          {{ segment.value }}
-        </span>
-
-        <!-- Indicators for expandable content -->
-        <span v-if="entry.hasStackTrace() || hasContext" class="ml-2 inline-flex gap-1">
-          <button
-            v-if="entry.hasStackTrace()"
-            class="text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-            @click="toggleStackTrace"
-          >
-            {{ isStackTraceExpanded ? '- Stack' : '+ Stack' }}
-            ({{ entry.stackTrace.length }})
-          </button>
-          <button
-            v-if="hasContext"
-            class="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50"
-            @click="toggleContext"
-          >
-            {{ isContextExpanded ? '- JSON' : '+ JSON' }}
-          </button>
-        </span>
-      </div>
-
-      <!-- Copy button (visible on hover) -->
       <button
         class="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 shrink-0"
-        title="Copy raw log line"
-        @click="copyToClipboard(entry.raw)"
+        title="Copy raw log"
+        @click="copyToClipboard(fullRawContent)"
       >
         Copy
       </button>
     </div>
 
-    <!-- Expandable Stack Trace -->
-    <div v-if="entry.hasStackTrace() && isStackTraceExpanded" class="px-2 pb-2 ml-36">
-      <div
-        class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-md p-2 font-mono text-xs"
-      >
-        <div
-          v-for="(frame, frameIndex) in entry.stackTrace"
-          :key="frameIndex"
-          class="text-red-700 dark:text-red-300 py-0.5 px-1 -mx-1 rounded"
+    <!-- Formatted mode: structured display -->
+    <template v-else>
+      <!-- Main log line -->
+      <div class="flex items-start gap-2 px-2 py-1.5">
+        <!-- Line number (optional) -->
+        <span
+          v-if="showLineNumbers"
+          class="w-12 text-right text-xs text-surface-400 dark:text-surface-600 font-mono select-none shrink-0"
         >
-          <template v-for="(segment, segIndex) in parseStackFrame(frame)" :key="segIndex">
-            <span
-              v-if="segment.type === 'file'"
-              class="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded px-0.5 -mx-0.5"
-              :title="`Open ${segment.value.file}:${segment.value.line} in ${settingsStore.preferredIde}`"
-              @click.stop="openInIde(segment.value.file, segment.value.line)"
-              >{{ segment.value.display }}</span
+          {{ entry.lineNumber }}
+        </span>
+
+        <!-- Timestamp -->
+        <span
+          class="w-20 text-xs text-surface-500 dark:text-surface-500 font-mono shrink-0"
+          :title="entry.timestamp?.toISOString() ?? 'No timestamp'"
+        >
+          {{ formattedTime }}
+        </span>
+
+        <!-- Level badge -->
+        <div class="w-16 shrink-0">
+          <LogLevelBadge :level="entry.level" />
+        </div>
+
+        <!-- Message -->
+        <div class="flex-1 min-w-0 font-mono text-sm text-surface-800 dark:text-surface-200">
+          <span
+            v-for="(segment, index) in messageSegments"
+            :key="index"
+            :class="{
+              'text-blue-600 dark:text-blue-400 hover:underline cursor-pointer':
+                segment.type === 'url',
+            }"
+            @click="segment.type === 'url' && openUrl(segment.value)"
+          >
+            {{ segment.value }}
+          </span>
+
+          <!-- Indicators for expandable content -->
+          <span v-if="entry.hasStackTrace() || hasContext" class="ml-2 inline-flex gap-1">
+            <button
+              v-if="entry.hasStackTrace()"
+              class="text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+              @click="toggleStackTrace"
             >
-            <span v-else>{{ segment.value }}</span>
-          </template>
+              {{ isStackTraceExpanded ? '- Stack' : '+ Stack' }}
+              ({{ entry.stackTrace.length }})
+            </button>
+            <button
+              v-if="hasContext"
+              class="text-xs px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50"
+              @click="toggleContext"
+            >
+              {{ isContextExpanded ? '- JSON' : '+ JSON' }}
+            </button>
+          </span>
+        </div>
+
+        <!-- Copy button (visible on hover) -->
+        <button
+          class="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 shrink-0"
+          title="Copy raw log line"
+          @click="copyToClipboard(entry.raw)"
+        >
+          Copy
+        </button>
+      </div>
+
+      <!-- Expandable Stack Trace -->
+      <div v-if="entry.hasStackTrace() && isStackTraceExpanded" class="px-2 pb-2 ml-36 min-w-0">
+        <div
+          class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-md p-2 font-mono text-xs overflow-x-auto"
+        >
+          <div
+            v-for="(frame, frameIndex) in entry.stackTrace"
+            :key="frameIndex"
+            class="text-red-700 dark:text-red-300 py-0.5 px-1 -mx-1 rounded whitespace-pre-wrap break-all"
+          >
+            <template v-for="(segment, segIndex) in parseStackFrame(frame)" :key="segIndex">
+              <span
+                v-if="segment.type === 'file'"
+                class="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded px-0.5 -mx-0.5"
+                :title="`Open ${segment.value.file}:${segment.value.line} in ${settingsStore.preferredIde}`"
+                @click.stop="openInIde(segment.value.file, segment.value.line)"
+                >{{ segment.value.display }}</span
+              >
+              <span v-else>{{ segment.value }}</span>
+            </template>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Expandable JSON Context -->
-    <div v-if="hasContext && isContextExpanded" class="px-2 pb-2 ml-36">
-      <pre
-        class="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-md p-2 font-mono text-xs text-purple-800 dark:text-purple-200 overflow-x-auto"
-        >{{ formattedContext }}</pre
-      >
-    </div>
+      <!-- Expandable JSON Context -->
+      <div v-if="hasContext && isContextExpanded" class="px-2 pb-2 ml-36">
+        <pre
+          class="bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 rounded-md p-2 font-mono text-xs text-purple-800 dark:text-purple-200 overflow-x-auto"
+          >{{ formattedContext }}</pre
+        >
+      </div>
+    </template>
   </div>
 </template>

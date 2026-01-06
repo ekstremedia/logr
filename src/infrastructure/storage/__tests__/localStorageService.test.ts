@@ -112,6 +112,26 @@ describe('SessionStorage', () => {
     activeSourcePath: '/var/log/app.log',
   };
 
+  const mockSessionDataWithPreferences: LastSessionData = {
+    sources: [
+      {
+        path: '/var/log/app.log',
+        type: 'file',
+        name: 'App Log',
+        showFormatted: true,
+        autoScroll: true,
+      },
+      {
+        path: '/var/log/debug.log',
+        type: 'file',
+        name: 'Debug',
+        showFormatted: false,
+        autoScroll: false,
+      },
+    ],
+    activeSourcePath: '/var/log/app.log',
+  };
+
   describe('saveSession', () => {
     it('should save session data', () => {
       SessionStorage.saveSession(mockSessionData);
@@ -130,6 +150,16 @@ describe('SessionStorage', () => {
       SessionStorage.saveSession(mockSessionData);
       const loaded = SessionStorage.loadSession();
       expect(loaded).toEqual(mockSessionData);
+    });
+
+    it('should preserve showFormatted and autoScroll preferences', () => {
+      SessionStorage.saveSession(mockSessionDataWithPreferences);
+      const loaded = SessionStorage.loadSession();
+
+      expect(loaded?.sources[0].showFormatted).toBe(true);
+      expect(loaded?.sources[0].autoScroll).toBe(true);
+      expect(loaded?.sources[1].showFormatted).toBe(false);
+      expect(loaded?.sources[1].autoScroll).toBe(false);
     });
   });
 
@@ -156,6 +186,17 @@ describe('NamedSessionStorage', () => {
     updatedAt: '2024-01-01T00:00:00.000Z',
   });
 
+  const createMockSessionWithPreferences = (id: string, name: string): NamedSession => ({
+    id,
+    name,
+    sources: [
+      { path: '/var/log/app.log', type: 'file', showFormatted: true, autoScroll: true },
+      { path: '/var/log/debug.log', type: 'file', showFormatted: false, autoScroll: false },
+    ],
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+  });
+
   describe('getSessions', () => {
     it('should return empty array when no sessions', () => {
       expect(NamedSessionStorage.getSessions()).toEqual([]);
@@ -177,6 +218,17 @@ describe('NamedSessionStorage', () => {
       const sessions = NamedSessionStorage.getSessions();
       expect(sessions).toHaveLength(1);
       expect(sessions[0].name).toBe('Test Session');
+    });
+
+    it('should preserve showFormatted and autoScroll preferences', () => {
+      const session = createMockSessionWithPreferences('1', 'With Prefs');
+      NamedSessionStorage.saveSession(session);
+
+      const saved = NamedSessionStorage.getSession('1');
+      expect(saved?.sources[0].showFormatted).toBe(true);
+      expect(saved?.sources[0].autoScroll).toBe(true);
+      expect(saved?.sources[1].showFormatted).toBe(false);
+      expect(saved?.sources[1].autoScroll).toBe(false);
     });
 
     it('should update existing session', () => {

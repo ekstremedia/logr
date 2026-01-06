@@ -115,8 +115,23 @@ const { filterEntries, isFiltering, resetAll } = useSharedSearch();
 const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
 const logContainerRef = ref<HTMLElement | null>(null);
 
-// Auto-scroll state (per window, defaults to true)
-const autoScroll = ref(true);
+// Computed: get auto-scroll state for current source
+const autoScroll = computed(() => {
+  if (!logStore.activeSourceId) return true;
+  return logStore.isAutoScroll(logStore.activeSourceId);
+});
+
+// Computed: get formatted state for current source
+const showFormatted = computed(() => {
+  if (!logStore.activeSourceId) return true;
+  return logStore.isFormatted(logStore.activeSourceId);
+});
+
+// Toggle formatted for current source
+function toggleFormatted() {
+  if (!logStore.activeSourceId) return;
+  logStore.setFormatted(logStore.activeSourceId, !showFormatted.value);
+}
 
 // Filtered entries based on search and level filters
 const filteredEntries = computed(() => filterEntries(logStore.activeEntries));
@@ -134,19 +149,23 @@ function scrollToBottom() {
 
 // Handle scroll events to detect if user scrolled up
 function handleScroll() {
-  if (!logContainerRef.value) return;
+  if (!logContainerRef.value || !logStore.activeSourceId) return;
 
   const { scrollTop, scrollHeight, clientHeight } = logContainerRef.value;
   const isAtBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px threshold
 
   // If user scrolls up, disable auto-scroll; if at bottom, re-enable
-  autoScroll.value = isAtBottom;
+  if (isAtBottom !== autoScroll.value) {
+    logStore.setAutoScroll(logStore.activeSourceId, isAtBottom);
+  }
 }
 
 // Toggle auto-scroll manually
 function toggleAutoScroll() {
-  autoScroll.value = !autoScroll.value;
-  if (autoScroll.value) {
+  if (!logStore.activeSourceId) return;
+  const newValue = !autoScroll.value;
+  logStore.setAutoScroll(logStore.activeSourceId, newValue);
+  if (newValue) {
     scrollToBottom();
   }
 }
@@ -159,12 +178,10 @@ watch(
   }
 );
 
-// Also scroll when active source changes
+// Also scroll when active source changes (if auto-scroll is enabled for that source)
 watch(
   () => logStore.activeSourceId,
   () => {
-    // Reset auto-scroll when switching sources
-    autoScroll.value = true;
     scrollToBottom();
   }
 );
@@ -452,6 +469,36 @@ async function handleFileDrop(paths: string[]) {
                 </span>
               </template>
             </div>
+            <!-- Format toggle -->
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors shrink-0"
+              :class="
+                showFormatted
+                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                  : 'text-surface-500 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'
+              "
+              :title="showFormatted ? 'Show formatted logs' : 'Show raw logs'"
+              @click="toggleFormatted"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" x2="8" y1="13" y2="13" />
+                <line x1="16" x2="8" y1="17" y2="17" />
+                <line x1="10" x2="8" y1="9" y2="9" />
+              </svg>
+              <span class="hidden sm:inline">{{ showFormatted ? 'Formatted' : 'Raw' }}</span>
+            </button>
             <!-- Auto-scroll toggle -->
             <button
               type="button"
@@ -504,7 +551,12 @@ async function handleFileDrop(paths: string[]) {
           </div>
 
           <div v-else>
-            <LogLine v-for="entry in filteredEntries" :key="entry.id" :entry="entry" />
+            <LogLine
+              v-for="entry in filteredEntries"
+              :key="entry.id"
+              :entry="entry"
+              :show-formatted="showFormatted"
+            />
           </div>
         </div>
 

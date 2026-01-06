@@ -98,6 +98,10 @@ export interface SessionSourceData {
   type: 'file' | 'folder';
   pattern?: string;
   name?: string;
+  /** Whether to show formatted (parsed) logs. Defaults to true. */
+  showFormatted?: boolean;
+  /** Whether auto-scroll is enabled. Defaults to true. */
+  autoScroll?: boolean;
 }
 
 /**

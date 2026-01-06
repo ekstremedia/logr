@@ -6,11 +6,19 @@ const logStore = useLogStore();
 
 const isOpen = ref(false);
 const showSaveDialog = ref(false);
+const showOverwriteConfirm = ref(false);
 const newSessionName = ref('');
 const inputRef = ref<HTMLInputElement | null>(null);
 
 const hasSources = computed(() => logStore.activeSources.length > 0);
 const hasCurrentSession = computed(() => !!logStore.currentSessionId);
+
+// Check if a session with the entered name already exists
+const existingSession = computed(() => {
+  const name = newSessionName.value.trim().toLowerCase();
+  if (!name) return null;
+  return logStore.namedSessions.find(s => s.name.toLowerCase() === name) ?? null;
+});
 
 function toggleMenu() {
   isOpen.value = !isOpen.value;
@@ -20,6 +28,7 @@ function toggleMenu() {
 function closeMenu() {
   isOpen.value = false;
   showSaveDialog.value = false;
+  showOverwriteConfirm.value = false;
   newSessionName.value = '';
 }
 
@@ -32,8 +41,26 @@ async function openSaveDialog() {
 
 function saveSession() {
   if (!newSessionName.value.trim()) return;
-  logStore.saveAsNamedSession(newSessionName.value.trim());
+
+  // If session with same name exists, show overwrite confirmation
+  if (existingSession.value && !showOverwriteConfirm.value) {
+    showOverwriteConfirm.value = true;
+    return;
+  }
+
+  // If overwriting, update the existing session and switch to it
+  if (existingSession.value) {
+    logStore.updateNamedSession(existingSession.value.id);
+    // Set as current session so the UI shows the correct name
+    logStore.currentSessionId = existingSession.value.id;
+  } else {
+    logStore.saveAsNamedSession(newSessionName.value.trim());
+  }
   closeMenu();
+}
+
+function cancelOverwrite() {
+  showOverwriteConfirm.value = false;
 }
 
 function saveCurrentSession() {
@@ -78,27 +105,47 @@ function deleteSession(sessionId: string, event: Event) {
     >
       <!-- Save dialog -->
       <div v-if="showSaveDialog" class="p-3">
-        <label class="block text-xs text-surface-500 dark:text-surface-400 mb-1">
-          Workspace name
-        </label>
-        <input
-          ref="inputRef"
-          v-model="newSessionName"
-          type="text"
-          class="w-full px-2 py-1 text-sm bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-surface-900 dark:text-surface-100"
-          placeholder="My Workspace"
-          @keydown.enter="saveSession"
-          @keydown.esc="showSaveDialog = false"
-        />
-        <div class="flex gap-2 mt-2">
-          <button class="flex-1 btn text-xs py-1" @click="showSaveDialog = false">Cancel</button>
-          <button
-            class="flex-1 btn-primary text-xs py-1"
-            :disabled="!newSessionName.trim()"
-            @click="saveSession"
-          >
-            Save
-          </button>
+        <!-- Overwrite confirmation -->
+        <div v-if="showOverwriteConfirm" class="text-center">
+          <p class="text-sm text-surface-700 dark:text-surface-300 mb-3">
+            Workspace "<strong>{{ existingSession?.name }}</strong
+            >" already exists. Overwrite?
+          </p>
+          <div class="flex gap-2">
+            <button class="flex-1 btn text-xs py-1" @click="cancelOverwrite">Cancel</button>
+            <button
+              class="flex-1 btn-primary text-xs py-1 bg-orange-500 hover:bg-orange-600"
+              @click="saveSession"
+            >
+              Overwrite
+            </button>
+          </div>
+        </div>
+
+        <!-- Name input -->
+        <div v-else>
+          <label class="block text-xs text-surface-500 dark:text-surface-400 mb-1">
+            Workspace name
+          </label>
+          <input
+            ref="inputRef"
+            v-model="newSessionName"
+            type="text"
+            class="w-full px-2 py-1 text-sm bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-600 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-surface-900 dark:text-surface-100"
+            placeholder="My Workspace"
+            @keydown.enter="saveSession"
+            @keydown.esc="showSaveDialog = false"
+          />
+          <div class="flex gap-2 mt-2">
+            <button class="flex-1 btn text-xs py-1" @click="showSaveDialog = false">Cancel</button>
+            <button
+              class="flex-1 btn-primary text-xs py-1"
+              :disabled="!newSessionName.trim()"
+              @click="saveSession"
+            >
+              {{ existingSession ? 'Overwrite' : 'Save' }}
+            </button>
+          </div>
         </div>
       </div>
 
