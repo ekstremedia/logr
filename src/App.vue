@@ -1,17 +1,80 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { invoke } from '@tauri-apps/api/core';
+import { onMounted, onUnmounted } from 'vue';
+import { open } from '@tauri-apps/plugin-dialog';
+import { useLogStore } from '@application/stores/logStore';
 
-const greetMsg = ref('');
-const name = ref('');
+const logStore = useLogStore();
 
-async function greet() {
-  greetMsg.value = await invoke('greet', { name: name.value });
+onMounted(async () => {
+  await logStore.initialize();
+});
+
+onUnmounted(async () => {
+  await logStore.cleanup();
+});
+
+async function handleAddLogFile() {
+  try {
+    const selected = await open({
+      multiple: false,
+      filters: [
+        { name: 'Log Files', extensions: ['log', 'txt'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+
+    if (selected && typeof selected === 'string') {
+      await logStore.addFile(selected);
+    }
+  } catch (error) {
+    console.error('Failed to add log file:', error);
+  }
+}
+
+async function handleAddLogFolder() {
+  try {
+    const selected = await open({
+      directory: true,
+    });
+
+    if (selected && typeof selected === 'string') {
+      await logStore.addFolder(selected, '*.log');
+    }
+  } catch (error) {
+    console.error('Failed to add log folder:', error);
+  }
+}
+
+function formatTimestamp(date: Date | null): string {
+  if (!date) return '--:--:--';
+  return date.toLocaleTimeString();
+}
+
+function getLevelClass(level: string): string {
+  const levelLower = level.toLowerCase();
+  switch (levelLower) {
+    case 'emergency':
+    case 'alert':
+    case 'critical':
+      return 'text-red-600 dark:text-red-400 font-bold';
+    case 'error':
+      return 'text-red-500 dark:text-red-400';
+    case 'warning':
+      return 'text-amber-500 dark:text-amber-400';
+    case 'notice':
+      return 'text-blue-500 dark:text-blue-400';
+    case 'info':
+      return 'text-green-500 dark:text-green-400';
+    case 'debug':
+      return 'text-gray-500 dark:text-gray-400';
+    default:
+      return 'text-surface-600 dark:text-surface-400';
+  }
 }
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950">
     <!-- Header -->
     <header
       class="bg-surface-100 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700 px-4 py-3"
@@ -28,50 +91,115 @@ async function greet() {
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 p-6">
-      <div class="max-w-2xl mx-auto">
-        <div class="card p-6 text-center">
-          <h2 class="text-2xl font-bold mb-4 text-surface-900 dark:text-surface-100">
-            Welcome to Logr
+    <main class="flex-1 flex overflow-hidden">
+      <!-- Sidebar - Sources List -->
+      <aside
+        class="w-64 bg-surface-100 dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 flex flex-col"
+      >
+        <div class="p-3 border-b border-surface-200 dark:border-surface-700">
+          <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300 uppercase">
+            Log Sources
           </h2>
-          <p class="text-surface-600 dark:text-surface-400 mb-6">
-            A modern, beautiful log tailing application.
-          </p>
-
-          <form class="flex gap-2 justify-center mb-4" @submit.prevent="greet">
-            <input v-model="name" placeholder="Enter a name..." class="input w-64" />
-            <button type="submit" class="btn-primary">Greet</button>
-          </form>
-
-          <p v-if="greetMsg" class="text-surface-700 dark:text-surface-300 animate-fade-in">
-            {{ greetMsg }}
-          </p>
         </div>
 
-        <!-- Quick Actions -->
-        <div class="mt-6 grid grid-cols-2 gap-4">
-          <button
-            class="card p-4 text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+        <div class="flex-1 overflow-y-auto">
+          <div
+            v-if="logStore.activeSources.length === 0"
+            class="p-4 text-center text-surface-500 dark:text-surface-400 text-sm"
           >
-            <div class="text-lg font-medium text-surface-900 dark:text-surface-100">
-              Add Log File
-            </div>
-            <p class="text-sm text-surface-500 dark:text-surface-400">
-              Open a file to start tailing
-            </p>
-          </button>
-          <button
-            class="card p-4 text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+            No log sources added yet
+          </div>
+
+          <div v-else class="p-2 space-y-1">
+            <button
+              v-for="source in logStore.activeSources"
+              :key="source.id"
+              :class="[
+                'w-full text-left px-3 py-2 rounded-lg transition-colors',
+                logStore.activeSourceId === source.id
+                  ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                  : 'hover:bg-surface-200 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-300',
+              ]"
+              @click="logStore.setActiveSource(source.id)"
+            >
+              <div class="font-medium truncate">{{ source.name }}</div>
+              <div class="text-xs text-surface-500 dark:text-surface-400 truncate">
+                {{ source.path.value }}
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="p-3 border-t border-surface-200 dark:border-surface-700 space-y-2">
+          <button class="w-full btn-primary text-sm" @click="handleAddLogFile">Add File</button>
+          <button class="w-full btn text-sm" @click="handleAddLogFolder">Add Folder</button>
+        </div>
+      </aside>
+
+      <!-- Log Viewer -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Log entries -->
+        <div v-if="logStore.activeSource" class="flex-1 overflow-auto font-mono text-sm">
+          <div
+            v-if="logStore.activeEntries.length === 0"
+            class="flex items-center justify-center h-full text-surface-500 dark:text-surface-400"
           >
-            <div class="text-lg font-medium text-surface-900 dark:text-surface-100">
-              Add Log Folder
-            </div>
-            <p class="text-sm text-surface-500 dark:text-surface-400">
-              Watch a folder for log files
+            No log entries yet. Waiting for new content...
+          </div>
+
+          <table v-else class="w-full">
+            <tbody>
+              <tr
+                v-for="entry in logStore.activeEntries"
+                :key="entry.id"
+                class="hover:bg-surface-100 dark:hover:bg-surface-800/50 border-b border-surface-100 dark:border-surface-800"
+              >
+                <td class="px-2 py-1 text-surface-400 dark:text-surface-600 text-xs w-20">
+                  {{ formatTimestamp(entry.timestamp) }}
+                </td>
+                <td class="px-2 py-1 w-20">
+                  <span :class="getLevelClass(entry.level.value)" class="text-xs uppercase">
+                    {{ entry.level.value }}
+                  </span>
+                </td>
+                <td class="px-2 py-1 text-surface-800 dark:text-surface-200">
+                  {{ entry.message }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else class="flex-1 flex items-center justify-center">
+          <div class="text-center max-w-md">
+            <div class="text-4xl mb-4">📋</div>
+            <h2 class="text-xl font-semibold text-surface-800 dark:text-surface-200 mb-2">
+              Welcome to Logr
+            </h2>
+            <p class="text-surface-600 dark:text-surface-400 mb-6">
+              Add a log file or folder to start tailing logs in real-time.
             </p>
-          </button>
+            <div class="flex gap-3 justify-center">
+              <button class="btn-primary" @click="handleAddLogFile">Add Log File</button>
+              <button class="btn" @click="handleAddLogFolder">Add Folder</button>
+            </div>
+          </div>
         </div>
       </div>
     </main>
+
+    <!-- Status bar -->
+    <footer
+      class="bg-surface-100 dark:bg-surface-900 border-t border-surface-200 dark:border-surface-700 px-4 py-1 text-xs text-surface-500 dark:text-surface-400"
+    >
+      <div class="flex items-center justify-between">
+        <span v-if="logStore.activeSource"> {{ logStore.activeEntries.length }} entries </span>
+        <span v-else>Ready</span>
+        <span v-if="logStore.error" class="text-red-500">
+          {{ logStore.error }}
+        </span>
+      </div>
+    </footer>
   </div>
 </template>

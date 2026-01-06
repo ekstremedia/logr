@@ -25,12 +25,41 @@ pub struct LogEntry {
     pub context: Option<serde_json::Value>,
     /// Stack trace lines, if present.
     #[serde(default)]
-    pub stack_trace: Vec<String>,
+    pub stack_trace: Option<Vec<String>>,
+    /// The log channel/environment (e.g., "local", "production").
+    #[serde(default)]
+    pub channel: Option<String>,
 }
 
 impl LogEntry {
-    /// Creates a new LogEntry.
+    /// Creates a new LogEntry with all fields.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        id: String,
+        timestamp: Option<DateTime<Utc>>,
+        level: LogLevel,
+        message: String,
+        raw: String,
+        line_number: u64,
+        context: Option<serde_json::Value>,
+        stack_trace: Option<Vec<String>>,
+        channel: Option<String>,
+    ) -> Self {
+        Self {
+            id,
+            timestamp,
+            level,
+            message,
+            raw,
+            line_number,
+            context,
+            stack_trace,
+            channel,
+        }
+    }
+
+    /// Creates a basic LogEntry without optional fields.
+    pub fn basic(
         id: String,
         timestamp: Option<DateTime<Utc>>,
         level: LogLevel,
@@ -46,7 +75,8 @@ impl LogEntry {
             raw,
             line_number,
             context: None,
-            stack_trace: Vec::new(),
+            stack_trace: None,
+            channel: None,
         }
     }
 
@@ -61,13 +91,14 @@ impl LogEntry {
             raw,
             line_number,
             context: None,
-            stack_trace: Vec::new(),
+            stack_trace: None,
+            channel: None,
         }
     }
 
     /// Checks if this entry has a stack trace.
     pub fn has_stack_trace(&self) -> bool {
-        !self.stack_trace.is_empty()
+        self.stack_trace.as_ref().map_or(false, |st| !st.is_empty())
     }
 
     /// Adds context to this entry.
@@ -78,7 +109,13 @@ impl LogEntry {
 
     /// Adds a stack trace to this entry.
     pub fn with_stack_trace(mut self, stack_trace: Vec<String>) -> Self {
-        self.stack_trace = stack_trace;
+        self.stack_trace = Some(stack_trace);
+        self
+    }
+
+    /// Adds a channel to this entry.
+    pub fn with_channel(mut self, channel: String) -> Self {
+        self.channel = Some(channel);
         self
     }
 }

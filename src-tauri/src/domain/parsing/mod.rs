@@ -2,8 +2,8 @@
 //!
 //! This module contains parsers for various log formats.
 
+mod laravel;
 mod traits;
 
+pub use laravel::{LaravelDailyLogDetector, LaravelLogParser};
 pub use traits::LogParser;
-
-// Parsers will be implemented in Phase 5

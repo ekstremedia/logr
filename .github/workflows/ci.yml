@@ -90,17 +90,17 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Check formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-
-      - name: Run Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-
       - name: Install npm dependencies
         run: npm ci
 
       - name: Build frontend
         run: npm run build
+
+      - name: Check formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
       - name: Run tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
