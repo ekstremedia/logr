@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-50 text-surface-900 dark:bg-surface-950 dark:text-surface-100;
+    @apply min-h-screen;
+  }
+
+  /* Custom scrollbar styles */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-100 dark:bg-surface-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-300 dark:bg-surface-700 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-400 dark:bg-surface-600;
+  }
+}
+
+@layer components {
+  /* Button base styles */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-blue-600 text-white hover:bg-blue-700;
+    @apply focus:ring-blue-500;
+    @apply dark:bg-blue-500 dark:hover:bg-blue-600;
+  }
+
+  .btn-secondary {
+    @apply btn bg-surface-200 text-surface-800 hover:bg-surface-300;
+    @apply focus:ring-surface-400;
+    @apply dark:bg-surface-700 dark:text-surface-200 dark:hover:bg-surface-600;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-surface-100;
+    @apply dark:hover:bg-surface-800;
+  }
+
+  /* Input styles */
+  .input {
+    @apply px-3 py-2 rounded-lg border transition-colors duration-200;
+    @apply bg-white border-surface-300 text-surface-900;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply dark:bg-surface-800 dark:border-surface-600 dark:text-surface-100;
+    @apply placeholder:text-surface-400 dark:placeholder:text-surface-500;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-surface-200;
+    @apply dark:bg-surface-900 dark:border-surface-700;
+  }
+
+  /* Log line styles */
+  .log-line {
+    @apply font-mono text-log leading-relaxed px-2 py-0.5;
+    @apply hover:bg-surface-100 dark:hover:bg-surface-800/50;
+  }
+
+  .log-level-debug {
+    @apply text-log-debug-light dark:text-log-debug-dark;
+  }
+
+  .log-level-info {
+    @apply text-log-info-light dark:text-log-info-dark;
+  }
+
+  .log-level-warning {
+    @apply text-log-warning-light dark:text-log-warning-dark;
+  }
+
+  .log-level-error {
+    @apply text-log-error-light dark:text-log-error-dark;
+  }
+
+  .log-level-critical {
+    @apply text-log-critical-light dark:text-log-critical-dark bg-red-50 dark:bg-red-950/30;
+  }
+}
+
+@layer utilities {
+  /* Prevent text selection during drag operations */
+  .no-select {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Hardware-accelerated scrolling */
+  .scroll-smooth {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
