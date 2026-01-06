@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Seek, SeekFrom};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -23,6 +23,7 @@ struct FileState {
     /// Last known line number.
     line_number: usize,
     /// Pattern for directory watching (None for single files).
+    #[allow(dead_code)]
     pattern: Option<glob::Pattern>,
 }
 
@@ -384,11 +385,11 @@ impl FileWatcher for NotifyFileWatcher {
         Ok(())
     }
 
-    fn unwatch(&mut self, path: &PathBuf) -> WatchResult<()> {
+    fn unwatch(&mut self, path: &Path) -> WatchResult<()> {
         {
             let states = self.file_states.lock().unwrap();
             if !states.contains_key(path) {
-                return Err(WatchError::NotWatching(path.clone()));
+                return Err(WatchError::NotWatching(path.to_path_buf()));
             }
         }
 
@@ -425,7 +426,7 @@ impl FileWatcher for NotifyFileWatcher {
         info!("Stopped watching all files");
     }
 
-    fn is_watching(&self, path: &PathBuf) -> bool {
+    fn is_watching(&self, path: &Path) -> bool {
         let states = self.file_states.lock().unwrap();
         states.contains_key(path)
     }

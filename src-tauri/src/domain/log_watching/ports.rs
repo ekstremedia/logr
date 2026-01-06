@@ -2,7 +2,7 @@
 //!
 //! These traits define the contracts that infrastructure adapters must implement.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::entities::log_entry::LogEntry;
 use super::entities::log_source::{LogSource, LogSourceStatus};
@@ -61,13 +61,13 @@ pub trait FileWatcher: Send {
     fn watch_directory(&mut self, path: PathBuf, pattern: &str) -> WatchResult<()>;
 
     /// Stop watching a path.
-    fn unwatch(&mut self, path: &PathBuf) -> WatchResult<()>;
+    fn unwatch(&mut self, path: &Path) -> WatchResult<()>;
 
     /// Stop watching all paths.
     fn unwatch_all(&mut self);
 
     /// Check if a path is being watched.
-    fn is_watching(&self, path: &PathBuf) -> bool;
+    fn is_watching(&self, path: &Path) -> bool;
 
     /// Get all watched paths.
     fn watched_paths(&self) -> Vec<PathBuf>;
@@ -88,7 +88,7 @@ pub trait LogSourceRepository: Send + Sync {
     fn get_mut(&mut self, id: &str) -> Option<&mut LogSource>;
 
     /// Get a log source by path.
-    fn get_by_path(&self, path: &PathBuf) -> Option<&LogSource>;
+    fn get_by_path(&self, path: &Path) -> Option<&LogSource>;
 
     /// Update a log source's status.
     fn update_status(&mut self, id: &str, status: LogSourceStatus, error_message: Option<String>);

@@ -6,7 +6,7 @@ authors = ["Terje"]
 license = "MIT"
 repository = "https://github.com/ekstremedia/logr"
 edition = "2021"
-rust-version = "1.70"
+rust-version = "1.80"
 
 [lib]
 name = "logr_lib"

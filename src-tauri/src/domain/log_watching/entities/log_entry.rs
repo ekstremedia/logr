@@ -98,7 +98,7 @@ impl LogEntry {
 
     /// Checks if this entry has a stack trace.
     pub fn has_stack_trace(&self) -> bool {
-        self.stack_trace.as_ref().map_or(false, |st| !st.is_empty())
+        self.stack_trace.as_ref().is_some_and(|st| !st.is_empty())
     }
 
     /// Adds context to this entry.
