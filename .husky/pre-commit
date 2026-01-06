@@ -1,0 +1,9 @@
+# Format and lint staged frontend files
+npx lint-staged
+
+# Format Rust code if any Rust files are staged
+if git diff --cached --name-only | grep -q "^src-tauri/"; then
+  echo "Formatting Rust code..."
+  cargo fmt --manifest-path src-tauri/Cargo.toml
+  git add src-tauri/
+fi
