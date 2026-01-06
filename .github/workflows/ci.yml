@@ -31,33 +31,6 @@ jobs:
       - name: Run Prettier
         run: npm run format:check
 
-  lint-backend:
-    name: Lint Backend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-
-      - name: Check formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-
-      - name: Run Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
-
   test-frontend:
     name: Test Frontend
     runs-on: ubuntu-latest
@@ -86,8 +59,8 @@ jobs:
           flags: frontend
           fail_ci_if_error: false
 
-  test-backend:
-    name: Test Backend
+  check-backend:
+    name: Lint & Test Backend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -100,6 +73,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
 
       - name: Install system dependencies
         run: |
@@ -111,7 +86,13 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Install dependencies
+      - name: Check formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+      - name: Install npm dependencies
         run: npm ci
 
       - name: Build frontend
@@ -122,7 +103,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    needs: [lint-frontend, lint-backend, test-frontend, test-backend]
+    needs: [lint-frontend, test-frontend, check-backend]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
