@@ -49,9 +49,8 @@ pub struct LogSource {
 impl LogSource {
     /// Creates a new file source.
     pub fn new_file(id: String, path: FilePath, name: Option<String>) -> Self {
-        let display_name = name.unwrap_or_else(|| {
-            path.file_name().unwrap_or("Unknown").to_string()
-        });
+        let display_name =
+            name.unwrap_or_else(|| path.file_name().unwrap_or("Unknown").to_string());
 
         Self {
             id,
@@ -68,9 +67,8 @@ impl LogSource {
 
     /// Creates a new folder source.
     pub fn new_folder(id: String, path: FilePath, pattern: String, name: Option<String>) -> Self {
-        let display_name = name.unwrap_or_else(|| {
-            path.file_name().unwrap_or("Unknown").to_string()
-        });
+        let display_name =
+            name.unwrap_or_else(|| path.file_name().unwrap_or("Unknown").to_string());
 
         Self {
             id,

@@ -19,6 +19,7 @@ pub trait LogParser: Send + Sync {
     /// Attempts to parse a multi-line log entry (e.g., stack traces).
     fn parse_multiline(&self, lines: &[&str], start_line: u64) -> Option<(LogEntry, usize)> {
         // Default implementation: just parse the first line
-        self.parse(lines.first()?, start_line).map(|entry| (entry, 1))
+        self.parse(lines.first()?, start_line)
+            .map(|entry| (entry, 1))
     }
 }

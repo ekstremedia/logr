@@ -1,4 +1,4 @@
-import { FilePath } from '../value-objects/FilePath';
+import type { FilePath } from '../value-objects/FilePath';
 
 export type LogSourceType = 'file' | 'folder';
 export type LogSourceStatus = 'active' | 'paused' | 'error' | 'stopped';

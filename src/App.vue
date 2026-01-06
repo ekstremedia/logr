@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+import { ref } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 
-const greetMsg = ref("");
-const name = ref("");
+const greetMsg = ref('');
+const name = ref('');
 
 async function greet() {
-  greetMsg.value = await invoke("greet", { name: name.value });
+  greetMsg.value = await invoke('greet', { name: name.value });
 }
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col">
     <!-- Header -->
-    <header class="bg-surface-100 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700 px-4 py-3">
+    <header
+      class="bg-surface-100 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700 px-4 py-3"
+    >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <img src="/logr.svg" class="w-8 h-8" alt="Logr logo" />
@@ -37,14 +39,8 @@ async function greet() {
           </p>
 
           <form class="flex gap-2 justify-center mb-4" @submit.prevent="greet">
-            <input
-              v-model="name"
-              placeholder="Enter a name..."
-              class="input w-64"
-            />
-            <button type="submit" class="btn-primary">
-              Greet
-            </button>
+            <input v-model="name" placeholder="Enter a name..." class="input w-64" />
+            <button type="submit" class="btn-primary">Greet</button>
           </form>
 
           <p v-if="greetMsg" class="text-surface-700 dark:text-surface-300 animate-fade-in">
@@ -54,13 +50,25 @@ async function greet() {
 
         <!-- Quick Actions -->
         <div class="mt-6 grid grid-cols-2 gap-4">
-          <button class="card p-4 text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-            <div class="text-lg font-medium text-surface-900 dark:text-surface-100">Add Log File</div>
-            <p class="text-sm text-surface-500 dark:text-surface-400">Open a file to start tailing</p>
+          <button
+            class="card p-4 text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+          >
+            <div class="text-lg font-medium text-surface-900 dark:text-surface-100">
+              Add Log File
+            </div>
+            <p class="text-sm text-surface-500 dark:text-surface-400">
+              Open a file to start tailing
+            </p>
           </button>
-          <button class="card p-4 text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-            <div class="text-lg font-medium text-surface-900 dark:text-surface-100">Add Log Folder</div>
-            <p class="text-sm text-surface-500 dark:text-surface-400">Watch a folder for log files</p>
+          <button
+            class="card p-4 text-left hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+          >
+            <div class="text-lg font-medium text-surface-900 dark:text-surface-100">
+              Add Log Folder
+            </div>
+            <p class="text-sm text-surface-500 dark:text-surface-400">
+              Watch a folder for log files
+            </p>
           </button>
         </div>
       </div>

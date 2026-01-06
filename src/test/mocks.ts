@@ -4,16 +4,18 @@ import { LogEntry, LogLevel, FilePath, LogSource } from '@domain/log-watching';
 /**
  * Creates a mock log entry for testing.
  */
-export function createMockLogEntry(overrides: Partial<{
-  id: string;
-  timestamp: Date | null;
-  level: string;
-  message: string;
-  raw: string;
-  lineNumber: number;
-  context: Record<string, unknown>;
-  stackTrace: string[];
-}> = {}): LogEntry {
+export function createMockLogEntry(
+  overrides: Partial<{
+    id: string;
+    timestamp: Date | null;
+    level: string;
+    message: string;
+    raw: string;
+    lineNumber: number;
+    context: Record<string, unknown>;
+    stackTrace: string[];
+  }> = {}
+): LogEntry {
   const level = LogLevel.fromString(overrides.level ?? 'info');
   return LogEntry.create({
     id: overrides.id ?? `test-${Date.now()}`,
@@ -30,29 +32,22 @@ export function createMockLogEntry(overrides: Partial<{
 /**
  * Creates a mock log source for testing.
  */
-export function createMockLogSource(overrides: Partial<{
-  id: string;
-  path: string;
-  type: 'file' | 'folder';
-  name: string;
-}> = {}): LogSource {
+export function createMockLogSource(
+  overrides: Partial<{
+    id: string;
+    path: string;
+    type: 'file' | 'folder';
+    name: string;
+  }> = {}
+): LogSource {
   const path = FilePath.from(overrides.path ?? '/var/log/app.log');
   const type = overrides.type ?? 'file';
 
   if (type === 'file') {
-    return LogSource.createFile(
-      overrides.id ?? 'test-source-1',
-      path,
-      overrides.name
-    );
+    return LogSource.createFile(overrides.id ?? 'test-source-1', path, overrides.name);
   }
 
-  return LogSource.createFolder(
-    overrides.id ?? 'test-source-1',
-    path,
-    '*.log',
-    overrides.name
-  );
+  return LogSource.createFolder(overrides.id ?? 'test-source-1', path, '*.log', overrides.name);
 }
 
 /**

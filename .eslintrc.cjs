@@ -36,7 +36,7 @@ module.exports = {
     'no-debugger': 'warn',
     'prefer-const': 'error',
     'no-var': 'error',
-    'eqeqeq': ['error', 'always'],
+    eqeqeq: ['error', 'always'],
   },
   ignorePatterns: [
     'dist',
