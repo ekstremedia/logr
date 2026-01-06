@@ -42,12 +42,7 @@ impl WindowManagerState {
 
     /// Get the next available window index (1-9).
     pub fn get_next_index(&self) -> Option<u8> {
-        for i in 1..=9 {
-            if !self.index_to_label.contains_key(&i) {
-                return Some(i);
-            }
-        }
-        None
+        (1..=9).find(|i| !self.index_to_label.contains_key(i))
     }
 
     /// Register a window.
@@ -148,7 +143,7 @@ pub fn create_log_window(
 
     // Create the window
     let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
-        .title(&format!("[{}] {}", window_index, title))
+        .title(format!("[{}] {}", window_index, title))
         .inner_size(1000.0, 700.0)
         .min_inner_size(600.0, 400.0)
         .center()

@@ -7,13 +7,16 @@ if git diff --cached --name-only | grep -qE "\.(ts|tsx|vue)$"; then
   npx vue-tsc --noEmit || exit 1
 fi
 
-# Format Rust code if any Rust files are staged
+# Format and lint Rust code if any Rust files are staged
 if git diff --cached --name-only | grep -q "^src-tauri/"; then
-  echo "Formatting Rust code..."
   if [ -f "$HOME/.cargo/bin/cargo" ]; then
+    echo "Formatting Rust code..."
     "$HOME/.cargo/bin/cargo" fmt --manifest-path src-tauri/Cargo.toml
     git add src-tauri/
+
+    echo "Running Clippy..."
+    "$HOME/.cargo/bin/cargo" clippy --manifest-path src-tauri/Cargo.toml -- -D warnings || exit 1
   else
-    echo "Warning: cargo not found, skipping Rust formatting"
+    echo "Warning: cargo not found, skipping Rust checks"
   fi
 fi
