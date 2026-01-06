@@ -305,9 +305,7 @@ mod tests {
             "#1 /app/Router.php(100): Controller->handle()",
             "[2024-01-15 10:30:01] local.INFO: Next entry",
         ];
-        let lines_ref: Vec<&str> = lines.iter().map(String::as_str).collect();
-
-        let (entry, consumed) = parser.parse_multiline(&lines_ref, 1).expect("Should parse");
+        let (entry, consumed) = parser.parse_multiline(&lines, 1).expect("Should parse");
 
         assert_eq!(consumed, 3);
         assert!(entry.stack_trace.is_some());
