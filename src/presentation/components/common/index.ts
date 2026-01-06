@@ -6,3 +6,5 @@ export { default as FileDropZone } from './FileDropZone.vue';
 export { default as SessionManager } from './SessionManager.vue';
 export { default as ContextMenu } from './ContextMenu.vue';
 export { default as SettingsModal } from './SettingsModal.vue';
+export { default as RenameInput } from './RenameInput.vue';
+export { default as AddFileModal } from './AddFileModal.vue';

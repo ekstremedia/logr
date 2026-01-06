@@ -53,6 +53,10 @@ export const useLogStore = defineStore('log', () => {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
+  // Track sources with unread entries (entries arrived while not viewing)
+  // Using a Map for better Vue reactivity (Set changes aren't tracked automatically)
+  const unreadSources = ref<Map<string, boolean>>(new Map());
+
   // Event listeners
   const unlisteners = ref<UnlistenFn[]>([]);
 
@@ -83,6 +87,11 @@ export const useLogStore = defineStore('log', () => {
         const newEntries = event.entries.map(toLogEntry);
         entries.value.set(event.source_id, [...sourceEntries, ...newEntries]);
         triggerRef(entries);
+
+        // Mark as unread if this isn't the active source
+        if (event.source_id !== activeSourceId.value) {
+          unreadSources.value.set(event.source_id, true);
+        }
       });
 
       const sourceStatusUnlisten = await LogApi.onSourceStatus(event => {
@@ -248,7 +257,16 @@ export const useLogStore = defineStore('log', () => {
   function setActiveSource(sourceId: string) {
     if (sources.value.has(sourceId)) {
       activeSourceId.value = sourceId;
+      // Clear unread flag when viewing this source
+      unreadSources.value.delete(sourceId);
     }
+  }
+
+  /**
+   * Check if a source has unread entries.
+   */
+  function hasUnread(sourceId: string): boolean {
+    return unreadSources.value.get(sourceId) === true;
   }
 
   async function clearEntries(sourceId: string) {
@@ -286,6 +304,27 @@ export const useLogStore = defineStore('log', () => {
       error.value = e instanceof Error ? e.message : 'Failed to resume source';
       throw e;
     }
+  }
+
+  /**
+   * Rename a source's display name.
+   */
+  function renameSource(sourceId: string, newName: string) {
+    const source = sources.value.get(sourceId);
+    if (source) {
+      const renamed = source.withName(newName.trim() || source.path.fileName);
+      sources.value.set(sourceId, renamed);
+      triggerRef(sources);
+      saveSession();
+    }
+  }
+
+  /**
+   * Get name suggestions for a source.
+   */
+  function getNameSuggestions(sourceId: string): string[] {
+    const source = sources.value.get(sourceId);
+    return source?.getNameSuggestions() ?? [];
   }
 
   /**
@@ -343,6 +382,12 @@ export const useLogStore = defineStore('log', () => {
 
   // Named sessions state
   const namedSessions = ref<NamedSession[]>(NamedSessionStorage.getSessions());
+  const currentSessionId = ref<string | null>(null);
+  const currentSessionName = computed(() => {
+    if (!currentSessionId.value) return null;
+    const session = namedSessions.value.find(s => s.id === currentSessionId.value);
+    return session?.name ?? null;
+  });
 
   /**
    * Refresh named sessions from storage.
@@ -373,7 +418,16 @@ export const useLogStore = defineStore('log', () => {
 
     NamedSessionStorage.saveSession(session);
     refreshNamedSessions();
+    currentSessionId.value = session.id;
     return session;
+  }
+
+  /**
+   * Save current sources to the currently loaded session.
+   */
+  function saveCurrentSession(): void {
+    if (!currentSessionId.value) return;
+    updateNamedSession(currentSessionId.value);
   }
 
   /**
@@ -425,6 +479,7 @@ export const useLogStore = defineStore('log', () => {
     triggerRef(entries);
     activeSourceId.value = null;
     error.value = null;
+    currentSessionId.value = null;
   }
 
   /**
@@ -461,6 +516,9 @@ export const useLogStore = defineStore('log', () => {
     if (firstSourceId) {
       activeSourceId.value = firstSourceId;
     }
+
+    // Track which session is currently loaded
+    currentSessionId.value = sessionId;
   }
 
   return {
@@ -471,6 +529,8 @@ export const useLogStore = defineStore('log', () => {
     isLoading,
     error,
     namedSessions,
+    currentSessionId,
+    currentSessionName,
 
     // Computed
     activeSources,
@@ -487,9 +547,13 @@ export const useLogStore = defineStore('log', () => {
     clearEntries,
     pauseSource,
     resumeSource,
+    renameSource,
+    getNameSuggestions,
+    hasUnread,
 
     // Named session actions
     saveAsNamedSession,
+    saveCurrentSession,
     updateNamedSession,
     deleteNamedSession,
     loadNamedSession,

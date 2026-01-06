@@ -10,6 +10,7 @@ const newSessionName = ref('');
 const inputRef = ref<HTMLInputElement | null>(null);
 
 const hasSources = computed(() => logStore.activeSources.length > 0);
+const hasCurrentSession = computed(() => !!logStore.currentSessionId);
 
 function toggleMenu() {
   isOpen.value = !isOpen.value;
@@ -32,6 +33,11 @@ async function openSaveDialog() {
 function saveSession() {
   if (!newSessionName.value.trim()) return;
   logStore.saveAsNamedSession(newSessionName.value.trim());
+  closeMenu();
+}
+
+function saveCurrentSession() {
+  logStore.saveCurrentSession();
   closeMenu();
 }
 
@@ -61,7 +67,7 @@ function deleteSession(sessionId: string, event: Event) {
     <div v-if="isOpen" class="fixed inset-0 z-40" @click="closeMenu" />
 
     <button class="btn text-sm flex items-center gap-2" @click="toggleMenu">
-      <span>Workspaces</span>
+      <span>{{ logStore.currentSessionName || 'Workspaces' }}</span>
       <span class="text-xs">{{ isOpen ? '▲' : '▼' }}</span>
     </button>
 
@@ -105,13 +111,21 @@ function deleteSession(sessionId: string, event: Event) {
         >
           New Workspace
         </button>
+        <!-- Save current workspace -->
+        <button
+          v-if="hasCurrentSession && hasSources"
+          class="w-full px-3 py-2 text-left text-sm hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300"
+          @click.stop="saveCurrentSession"
+        >
+          Save "{{ logStore.currentSessionName }}"
+        </button>
         <!-- Save current as -->
         <button
           v-if="hasSources"
           class="w-full px-3 py-2 text-left text-sm hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-700 dark:text-surface-300"
           @click.stop="openSaveDialog"
         >
-          Save current as...
+          Save as...
         </button>
       </div>
 

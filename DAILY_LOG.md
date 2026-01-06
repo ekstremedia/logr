@@ -1,5 +1,62 @@
 # Daily Development Log
 
+## 2026-01-06 (Continued)
+
+### Session Summary
+Added several UX improvements: Add File modal, rename sources feature, unread indicators, and workspace save functionality.
+
+### Features Added
+
+#### 1. Add File Modal
+- New modal dialog when clicking "Add File" button
+- Text input field for pasting file paths directly
+- "Find File" button opens system file browser
+- Cancel/Add buttons with keyboard shortcuts (Escape/Enter)
+- **Files:** `src/presentation/components/common/AddFileModal.vue`
+
+#### 2. Rename Log Sources
+- Double-click or use context menu to rename sources
+- Smart name suggestions extracted from file path:
+  - Removes date patterns (e.g., `laravel-2023-08-14.log` → `laravel`)
+  - Extracts project name from Laravel storage path
+  - Suggests parent folder names
+- **Files:**
+  - `src/presentation/components/common/RenameInput.vue` - Input component with suggestions
+  - `src/domain/log-watching/entities/LogSource.ts` - Added `withName()` and `getNameSuggestions()`
+  - `src/application/stores/logStore.ts` - Added `renameSource()` and `getNameSuggestions()`
+
+#### 3. Save Current Workspace
+- Previously only "Save As..." was available
+- Now shows "Save [workspace name]" when a workspace is loaded
+- Updates the existing workspace instead of creating a new one
+- **Files:** `src/presentation/components/common/SessionManager.vue`
+
+#### 4. Unread Indicator
+- Red dot appears next to log sources with new entries
+- Only shows when viewing a different source
+- Clears when you click on the source to view it
+- **Files:**
+  - `src/application/stores/logStore.ts` - Added `unreadSources` Map and `hasUnread()`
+  - `src/App.vue` - Added indicator dot in sidebar
+
+### Files Modified
+- `src/App.vue` - AddFileModal integration, unread indicator, rename UI
+- `src/application/stores/logStore.ts` - Rename and unread functionality
+- `src/domain/log-watching/entities/LogSource.ts` - Name suggestions logic
+- `src/presentation/components/common/SessionManager.vue` - Save workspace
+- `src/presentation/components/common/index.ts` - Export new components
+
+### Files Created
+- `src/presentation/components/common/AddFileModal.vue`
+- `src/presentation/components/common/RenameInput.vue`
+
+### Technical Notes
+- Used `v-if` on modal component in parent rather than internal `v-if` with prop for simpler lifecycle management
+- Used Map instead of Set for `unreadSources` for better Vue reactivity tracking
+- Name suggestions use regex to extract project names from common path patterns
+
+---
+
 ## 2025-01-06
 
 ### Session Summary

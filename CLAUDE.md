@@ -66,14 +66,20 @@ triggerRef(entries);  // Required for computed properties to update
 - Multi-source support (files and folders)
 - Search and log level filtering
 - Dark/light theme toggle
+- Auto-scroll to bottom (enabled by default)
 - Workspace management (save/load named workspaces)
 - Session persistence (auto-restore last session)
 - Right-click context menu on sources:
+  - Rename
   - Open in New Window
   - Open with System (uses @tauri-apps/plugin-opener)
   - Remove
 - Keyboard shortcuts (Cmd/Alt+1-9 to switch sources)
 - Laravel log parsing
+- Rename log sources with smart name suggestions from path
+- Add File modal with text input (paste path) + file browser
+- Unread indicator (red dot) on sources with new entries
+- Clickable stacktrace file paths (opens in configured IDE)
 
 ### Backend State Management
 The `LogWatcherState` manages:
@@ -105,11 +111,16 @@ The `LogWatcherState` manages:
 | File | Purpose |
 |------|---------|
 | `src/application/stores/logStore.ts` | Main state management |
+| `src/application/stores/settingsStore.ts` | App settings (IDE preferences) |
 | `src/infrastructure/tauri/logApi.ts` | Tauri command invocations |
 | `src-tauri/src/application/state.rs` | Backend state & file watching |
 | `src-tauri/src/application/commands/mod.rs` | Tauri command definitions |
 | `src/App.vue` | Main application component |
 | `src/presentation/components/common/SessionManager.vue` | Workspace UI |
+| `src/presentation/components/common/AddFileModal.vue` | Add file dialog |
+| `src/presentation/components/common/RenameInput.vue` | Source rename input with suggestions |
+| `src/presentation/components/common/SettingsModal.vue` | Settings dialog (IDE config) |
+| `src/domain/log-watching/entities/LogSource.ts` | Log source entity with name suggestions |
 
 ## MCP Bridge Plugin (for Claude Code)
 

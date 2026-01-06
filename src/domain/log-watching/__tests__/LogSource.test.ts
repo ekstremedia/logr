@@ -118,6 +118,91 @@ describe('LogSource', () => {
     });
   });
 
+  describe('withName', () => {
+    it('should create copy with updated name', () => {
+      const path = FilePath.from('/var/log/app.log');
+      const source = LogSource.createFile('source-1', path);
+      const renamed = source.withName('My Custom Name');
+
+      expect(source.name).toBe('app.log');
+      expect(renamed.name).toBe('My Custom Name');
+      expect(renamed.id).toBe(source.id);
+      expect(renamed.path.equals(source.path)).toBe(true);
+    });
+
+    it('should preserve other properties', () => {
+      const path = FilePath.from('/var/log/app.log');
+      const source = LogSource.createFile('source-1', path).withStatus('paused');
+      const renamed = source.withName('New Name');
+
+      expect(renamed.status).toBe('paused');
+      expect(renamed.type).toBe('file');
+    });
+  });
+
+  describe('getNameSuggestions', () => {
+    it('should suggest name without date for Laravel logs', () => {
+      const path = FilePath.from('/var/www/html/myproject/storage/logs/laravel-2023-08-14.log');
+      const source = LogSource.createFile('source-1', path);
+      const suggestions = source.getNameSuggestions();
+
+      expect(suggestions).toContain('laravel');
+      expect(suggestions).toContain('myproject');
+    });
+
+    it('should extract project name from Laravel storage path', () => {
+      const path = FilePath.from(
+        '/private/var/www/html/famacweb/storage/logs/laravel-2023-08-14.log'
+      );
+      const source = LogSource.createFile('source-1', path);
+      const suggestions = source.getNameSuggestions();
+
+      expect(suggestions).toContain('famacweb');
+      expect(suggestions).toContain('laravel');
+    });
+
+    it('should extract project name from simple logs folder', () => {
+      const path = FilePath.from('/home/user/projects/myapp/logs/app.log');
+      const source = LogSource.createFile('source-1', path);
+      const suggestions = source.getNameSuggestions();
+
+      expect(suggestions).toContain('myapp');
+    });
+
+    it('should suggest file name without extension', () => {
+      const path = FilePath.from('/var/log/nginx/access.log');
+      const source = LogSource.createFile('source-1', path);
+      const suggestions = source.getNameSuggestions();
+
+      expect(suggestions).toContain('access');
+    });
+
+    it('should return empty array for simple paths', () => {
+      const path = FilePath.from('/app.log');
+      const source = LogSource.createFile('source-1', path);
+      const suggestions = source.getNameSuggestions();
+
+      expect(suggestions).toContain('app');
+    });
+
+    it('should not have duplicates', () => {
+      const path = FilePath.from('/var/www/html/laravel/storage/logs/laravel.log');
+      const source = LogSource.createFile('source-1', path);
+      const suggestions = source.getNameSuggestions();
+
+      const uniqueSuggestions = [...new Set(suggestions)];
+      expect(suggestions.length).toBe(uniqueSuggestions.length);
+    });
+
+    it('should limit to 5 suggestions', () => {
+      const path = FilePath.from('/a/b/c/d/e/f/g/h/logs/file-2024-01-01.log');
+      const source = LogSource.createFile('source-1', path);
+      const suggestions = source.getNameSuggestions();
+
+      expect(suggestions.length).toBeLessThanOrEqual(5);
+    });
+  });
+
   describe('immutability', () => {
     it('should be frozen', () => {
       const path = FilePath.from('/var/log/app.log');

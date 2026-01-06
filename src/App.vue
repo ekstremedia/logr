@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref, watch, nextTick } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { useLogStore } from '@application/stores/logStore';
@@ -13,6 +13,8 @@ import {
   SessionManager,
   ContextMenu,
   SettingsModal,
+  RenameInput,
+  AddFileModal,
 } from '@presentation/components/common';
 import { useSettingsStore } from '@application/stores/settingsStore';
 import { LogLine } from '@presentation/components/log-viewer';
@@ -26,11 +28,22 @@ const settingsStore = useSettingsStore();
 // Settings modal state
 const showSettingsModal = ref(false);
 
+// Add file modal state
+const showAddFileModal = ref(false);
+
 // Context menu
 const contextMenuRef = ref<InstanceType<typeof ContextMenu> | null>(null);
 const contextMenuSource = ref<LogSource | null>(null);
 
+// Rename state
+const renamingSourceId = ref<string | null>(null);
+const renamingSuggestions = ref<string[]>([]);
+
 const contextMenuItems = computed(() => [
+  {
+    label: 'Rename',
+    action: () => startRenameContextSource(),
+  },
   {
     label: 'Open in New Window',
     action: () => openSourceInWindow(),
@@ -73,14 +86,88 @@ async function removeContextSource() {
   }
 }
 
+function startRenameContextSource() {
+  if (contextMenuSource.value) {
+    startRename(contextMenuSource.value.id);
+  }
+}
+
+function startRename(sourceId: string) {
+  renamingSourceId.value = sourceId;
+  renamingSuggestions.value = logStore.getNameSuggestions(sourceId);
+}
+
+function handleRenameSave(sourceId: string, newName: string) {
+  logStore.renameSource(sourceId, newName);
+  renamingSourceId.value = null;
+  renamingSuggestions.value = [];
+}
+
+function handleRenameCancel() {
+  renamingSourceId.value = null;
+  renamingSuggestions.value = [];
+}
+
 // Initialize theme and search
 useTheme();
 const { filterEntries, isFiltering, resetAll } = useSharedSearch();
 
 const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
+const logContainerRef = ref<HTMLElement | null>(null);
+
+// Auto-scroll state (per window, defaults to true)
+const autoScroll = ref(true);
 
 // Filtered entries based on search and level filters
 const filteredEntries = computed(() => filterEntries(logStore.activeEntries));
+
+// Scroll to bottom of log container
+function scrollToBottom() {
+  if (logContainerRef.value && autoScroll.value) {
+    nextTick(() => {
+      if (logContainerRef.value) {
+        logContainerRef.value.scrollTop = logContainerRef.value.scrollHeight;
+      }
+    });
+  }
+}
+
+// Handle scroll events to detect if user scrolled up
+function handleScroll() {
+  if (!logContainerRef.value) return;
+
+  const { scrollTop, scrollHeight, clientHeight } = logContainerRef.value;
+  const isAtBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px threshold
+
+  // If user scrolls up, disable auto-scroll; if at bottom, re-enable
+  autoScroll.value = isAtBottom;
+}
+
+// Toggle auto-scroll manually
+function toggleAutoScroll() {
+  autoScroll.value = !autoScroll.value;
+  if (autoScroll.value) {
+    scrollToBottom();
+  }
+}
+
+// Watch for new entries and scroll to bottom
+watch(
+  () => filteredEntries.value.length,
+  () => {
+    scrollToBottom();
+  }
+);
+
+// Also scroll when active source changes
+watch(
+  () => logStore.activeSourceId,
+  () => {
+    // Reset auto-scroll when switching sources
+    autoScroll.value = true;
+    scrollToBottom();
+  }
+);
 
 onMounted(async () => {
   settingsStore.initialize();
@@ -93,19 +180,17 @@ onUnmounted(async () => {
   await windowStore.cleanup();
 });
 
-async function handleAddLogFile() {
-  try {
-    const selected = await open({
-      multiple: false,
-      filters: [
-        { name: 'Log Files', extensions: ['log', 'txt'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-    });
+function handleAddLogFile() {
+  showAddFileModal.value = true;
+}
 
-    if (selected && typeof selected === 'string') {
-      await logStore.addFile(selected);
-    }
+function handleCloseAddFileModal() {
+  showAddFileModal.value = false;
+}
+
+async function handleAddFile(path: string) {
+  try {
+    await logStore.addFile(path);
   } catch (error) {
     console.error('Failed to add log file:', error);
   }
@@ -221,7 +306,18 @@ async function handleFileDrop(paths: string[]) {
               ]"
               @contextmenu="showContextMenu($event, source)"
             >
-              <div class="flex items-start justify-between gap-2">
+              <!-- Rename input mode -->
+              <div v-if="renamingSourceId === source.id" class="py-1">
+                <RenameInput
+                  :current-name="source.name"
+                  :suggestions="renamingSuggestions"
+                  @save="handleRenameSave(source.id, $event)"
+                  @cancel="handleRenameCancel"
+                />
+              </div>
+
+              <!-- Normal display mode -->
+              <div v-else class="flex items-start justify-between gap-2">
                 <button
                   class="flex-1 text-left min-w-0"
                   :class="[
@@ -230,12 +326,19 @@ async function handleFileDrop(paths: string[]) {
                       : 'text-surface-700 dark:text-surface-300',
                   ]"
                   @click="logStore.setActiveSource(source.id)"
+                  @dblclick.stop="startRename(source.id)"
                 >
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-surface-400 dark:text-surface-500 w-4">{{
                       index + 1
                     }}</span>
                     <span class="font-medium truncate">{{ source.name }}</span>
+                    <!-- Unread indicator -->
+                    <span
+                      v-if="logStore.hasUnread(source.id)"
+                      class="w-2 h-2 rounded-full bg-red-500 shrink-0"
+                      title="New log entries"
+                    />
                   </div>
                   <div class="text-xs text-surface-500 dark:text-surface-400 truncate ml-6">
                     {{ source.path.value }}
@@ -282,8 +385,110 @@ async function handleFileDrop(paths: string[]) {
           </div>
         </div>
 
+        <!-- File name header -->
+        <div
+          v-if="logStore.activeSource"
+          class="px-4 py-2 bg-surface-100 dark:bg-surface-800 border-b border-surface-200 dark:border-surface-700"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4 text-surface-500 dark:text-surface-400 shrink-0"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+
+              <!-- Rename input mode in header -->
+              <div v-if="renamingSourceId === logStore.activeSource.id" class="flex-1 max-w-xs">
+                <RenameInput
+                  :current-name="logStore.activeSource.name"
+                  :suggestions="renamingSuggestions"
+                  @save="handleRenameSave(logStore.activeSource.id, $event)"
+                  @cancel="handleRenameCancel"
+                />
+              </div>
+
+              <!-- Normal display mode -->
+              <template v-else>
+                <span
+                  class="font-medium text-surface-800 dark:text-surface-200 truncate"
+                  :title="logStore.activeSource.path.value"
+                >
+                  {{ logStore.activeSource.name }}
+                </span>
+                <!-- Edit button -->
+                <button
+                  type="button"
+                  class="p-1 rounded hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
+                  title="Rename"
+                  @click="startRename(logStore.activeSource.id)"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    <path d="m15 5 4 4" />
+                  </svg>
+                </button>
+                <span
+                  class="text-xs text-surface-500 dark:text-surface-400 truncate hidden sm:inline"
+                >
+                  {{ logStore.activeSource.path.value }}
+                </span>
+              </template>
+            </div>
+            <!-- Auto-scroll toggle -->
+            <button
+              type="button"
+              class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors shrink-0"
+              :class="
+                autoScroll
+                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                  : 'text-surface-500 dark:text-surface-400 hover:bg-surface-200 dark:hover:bg-surface-700'
+              "
+              :title="autoScroll ? 'Auto-scroll enabled' : 'Auto-scroll disabled'"
+              @click="toggleAutoScroll"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M12 5v14" />
+                <path d="m19 12-7 7-7-7" />
+              </svg>
+              <span class="hidden sm:inline">{{ autoScroll ? 'Auto' : 'Manual' }}</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Log entries -->
-        <div v-if="logStore.activeSource" class="flex-1 overflow-auto">
+        <div
+          v-if="logStore.activeSource"
+          ref="logContainerRef"
+          class="flex-1 overflow-auto"
+          @scroll="handleScroll"
+        >
           <div
             v-if="logStore.activeEntries.length === 0"
             class="flex items-center justify-center h-full text-surface-500 dark:text-surface-400"
@@ -345,5 +550,8 @@ async function handleFileDrop(paths: string[]) {
 
     <!-- Settings Modal -->
     <SettingsModal :open="showSettingsModal" @close="showSettingsModal = false" />
+
+    <!-- Add File Modal -->
+    <AddFileModal v-if="showAddFileModal" @close="handleCloseAddFileModal" @add="handleAddFile" />
   </FileDropZone>
 </template>
