@@ -79,7 +79,7 @@ impl LogParser for LaravelLogParser {
         let message = captures.get(4)?.as_str();
 
         let timestamp = self.parse_timestamp(timestamp_str);
-        let level = LogLevel::from_str(level_str);
+        let level = LogLevel::parse(level_str);
         let (clean_message, context) = self.extract_context(message);
 
         Some(LogEntry::new(

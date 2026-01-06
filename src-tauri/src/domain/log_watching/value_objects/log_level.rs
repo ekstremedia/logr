@@ -3,10 +3,13 @@
 use serde::{Deserialize, Serialize};
 
 /// The severity level of a log entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
     Debug = 0,
+    #[default]
     Info = 1,
     Notice = 2,
     Warning = 3,
@@ -29,10 +32,10 @@ impl LogLevel {
     /// ```
     /// use logr_lib::domain::log_watching::LogLevel;
     ///
-    /// let level = LogLevel::from_str("ERROR");
+    /// let level = LogLevel::parse("ERROR");
     /// assert_eq!(level, LogLevel::Error);
     /// ```
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().trim() {
             "debug" => LogLevel::Debug,
             "info" | "information" => LogLevel::Info,
@@ -71,12 +74,6 @@ impl LogLevel {
     }
 }
 
-impl Default for LogLevel {
-    fn default() -> Self {
-        LogLevel::Info
-    }
-}
-
 impl std::fmt::Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
@@ -98,49 +95,57 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_from_str_debug() {
-        assert_eq!(LogLevel::from_str("DEBUG"), LogLevel::Debug);
-        assert_eq!(LogLevel::from_str("debug"), LogLevel::Debug);
+    fn test_parse_debug() {
+        assert_eq!(LogLevel::parse("DEBUG"), LogLevel::Debug);
+        assert_eq!(LogLevel::parse("debug"), LogLevel::Debug);
     }
 
     #[test]
-    fn test_from_str_info() {
-        assert_eq!(LogLevel::from_str("INFO"), LogLevel::Info);
-        assert_eq!(LogLevel::from_str("information"), LogLevel::Info);
+    fn test_parse_info() {
+        assert_eq!(LogLevel::parse("INFO"), LogLevel::Info);
+        assert_eq!(LogLevel::parse("information"), LogLevel::Info);
     }
 
     #[test]
-    fn test_from_str_warning() {
-        assert_eq!(LogLevel::from_str("WARNING"), LogLevel::Warning);
-        assert_eq!(LogLevel::from_str("warn"), LogLevel::Warning);
+    fn test_parse_warning() {
+        assert_eq!(LogLevel::parse("WARNING"), LogLevel::Warning);
+        assert_eq!(LogLevel::parse("warn"), LogLevel::Warning);
     }
 
     #[test]
-    fn test_from_str_error() {
-        assert_eq!(LogLevel::from_str("ERROR"), LogLevel::Error);
-        assert_eq!(LogLevel::from_str("err"), LogLevel::Error);
+    fn test_parse_error() {
+        assert_eq!(LogLevel::parse("ERROR"), LogLevel::Error);
+        assert_eq!(LogLevel::parse("err"), LogLevel::Error);
     }
 
     #[test]
-    fn test_from_str_critical() {
-        assert_eq!(LogLevel::from_str("CRITICAL"), LogLevel::Critical);
-        assert_eq!(LogLevel::from_str("fatal"), LogLevel::Critical);
-        assert_eq!(LogLevel::from_str("emergency"), LogLevel::Critical);
+    fn test_parse_critical() {
+        assert_eq!(LogLevel::parse("CRITICAL"), LogLevel::Critical);
+        assert_eq!(LogLevel::parse("fatal"), LogLevel::Critical);
     }
 
     #[test]
-    fn test_from_str_unknown_defaults_to_info() {
-        assert_eq!(LogLevel::from_str("UNKNOWN"), LogLevel::Info);
-        assert_eq!(LogLevel::from_str("random"), LogLevel::Info);
+    fn test_parse_emergency() {
+        assert_eq!(LogLevel::parse("EMERGENCY"), LogLevel::Emergency);
+        assert_eq!(LogLevel::parse("emerg"), LogLevel::Emergency);
+    }
+
+    #[test]
+    fn test_parse_unknown_defaults_to_info() {
+        assert_eq!(LogLevel::parse("UNKNOWN"), LogLevel::Info);
+        assert_eq!(LogLevel::parse("random"), LogLevel::Info);
     }
 
     #[test]
     fn test_severity() {
         assert_eq!(LogLevel::Debug.severity(), 0);
         assert_eq!(LogLevel::Info.severity(), 1);
-        assert_eq!(LogLevel::Warning.severity(), 2);
-        assert_eq!(LogLevel::Error.severity(), 3);
-        assert_eq!(LogLevel::Critical.severity(), 4);
+        assert_eq!(LogLevel::Notice.severity(), 2);
+        assert_eq!(LogLevel::Warning.severity(), 3);
+        assert_eq!(LogLevel::Error.severity(), 4);
+        assert_eq!(LogLevel::Critical.severity(), 5);
+        assert_eq!(LogLevel::Alert.severity(), 6);
+        assert_eq!(LogLevel::Emergency.severity(), 7);
     }
 
     #[test]
