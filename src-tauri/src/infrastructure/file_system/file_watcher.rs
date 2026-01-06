@@ -515,10 +515,7 @@ mod tests {
 
         // Wait for event
         let event = rx.recv_timeout(Duration::from_secs(2));
-        assert!(
-            event.is_ok(),
-            "Should receive event for appended content"
-        );
+        assert!(event.is_ok(), "Should receive event for appended content");
 
         if let Ok(FileWatchEvent::ContentAppended { content, .. }) = event {
             assert!(content.contains("New line"));

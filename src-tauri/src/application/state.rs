@@ -63,13 +63,8 @@ impl LogWatcherState {
     }
 
     /// Add a file source.
-    pub fn add_file(
-        &mut self,
-        path: &str,
-        name: Option<String>,
-    ) -> Result<LogSource, String> {
-        let file_path =
-            FilePath::new(path).map_err(|e| format!("Invalid path: {}", e))?;
+    pub fn add_file(&mut self, path: &str, name: Option<String>) -> Result<LogSource, String> {
+        let file_path = FilePath::new(path).map_err(|e| format!("Invalid path: {}", e))?;
         let path_buf = PathBuf::from(path);
 
         // Check if already watching
@@ -99,8 +94,7 @@ impl LogWatcherState {
         pattern: &str,
         name: Option<String>,
     ) -> Result<LogSource, String> {
-        let file_path =
-            FilePath::new(path).map_err(|e| format!("Invalid path: {}", e))?;
+        let file_path = FilePath::new(path).map_err(|e| format!("Invalid path: {}", e))?;
         let path_buf = PathBuf::from(path);
 
         // Check if already watching
@@ -302,7 +296,10 @@ fn process_file_event(
                     .lines()
                     .enumerate()
                     .map(|(i, line)| {
-                        state_guard.parse_line(line, (line_number - content.lines().count() + i + 1) as u64)
+                        state_guard.parse_line(
+                            line,
+                            (line_number - content.lines().count() + i + 1) as u64,
+                        )
                     })
                     .collect();
 
@@ -311,10 +308,7 @@ fn process_file_event(
                 // Emit event to frontend
                 let _ = app_handle.emit(
                     event_names::LOG_ENTRIES,
-                    LogEntriesEvent {
-                        source_id,
-                        entries,
-                    },
+                    LogEntriesEvent { source_id, entries },
                 );
             }
         }
@@ -324,16 +318,20 @@ fn process_file_event(
                 state_guard.clear_entries(&source_id);
                 let _ = app_handle.emit(
                     event_names::FILE_TRUNCATED,
-                    FileTruncatedEvent {
-                        source_id,
-                    },
+                    FileTruncatedEvent { source_id },
                 );
             }
         }
         FileWatchEvent::FileDeleted { path } => {
             let mut state_guard = state.lock().unwrap();
             if let Some(source_id) = state_guard.get_source_id_for_path(&path) {
-                state_guard.update_status(&source_id, LogSourceStatus::Error, Some("File deleted".to_string())).ok();
+                state_guard
+                    .update_status(
+                        &source_id,
+                        LogSourceStatus::Error,
+                        Some("File deleted".to_string()),
+                    )
+                    .ok();
                 let _ = app_handle.emit(
                     event_names::SOURCE_STATUS,
                     SourceStatusEvent {
@@ -347,7 +345,9 @@ fn process_file_event(
         FileWatchEvent::Error { path, message } => {
             let mut state_guard = state.lock().unwrap();
             if let Some(source_id) = state_guard.get_source_id_for_path(&path) {
-                state_guard.update_status(&source_id, LogSourceStatus::Error, Some(message.clone())).ok();
+                state_guard
+                    .update_status(&source_id, LogSourceStatus::Error, Some(message.clone()))
+                    .ok();
                 let _ = app_handle.emit(
                     event_names::SOURCE_STATUS,
                     SourceStatusEvent {

@@ -109,12 +109,8 @@ pub trait LogEntryRepository: Send + Sync {
     fn get_entries(&self, source_id: &str, limit: Option<usize>) -> Vec<&LogEntry>;
 
     /// Get entries for a source with pagination.
-    fn get_entries_paginated(
-        &self,
-        source_id: &str,
-        offset: usize,
-        limit: usize,
-    ) -> Vec<&LogEntry>;
+    fn get_entries_paginated(&self, source_id: &str, offset: usize, limit: usize)
+        -> Vec<&LogEntry>;
 
     /// Clear all entries for a source.
     fn clear(&mut self, source_id: &str);

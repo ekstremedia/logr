@@ -88,10 +88,7 @@ pub fn get_log_sources(state: State<SharedLogWatcherState>) -> Vec<LogSource> {
 
 /// Get a specific log source.
 #[tauri::command]
-pub fn get_log_source(
-    state: State<SharedLogWatcherState>,
-    source_id: String,
-) -> Option<LogSource> {
+pub fn get_log_source(state: State<SharedLogWatcherState>, source_id: String) -> Option<LogSource> {
     let state_guard = state.lock().unwrap();
     state_guard.get_source(&source_id)
 }
@@ -124,10 +121,7 @@ pub fn read_initial_content(
 
 /// Clear entries for a source.
 #[tauri::command]
-pub fn clear_log_entries(
-    state: State<SharedLogWatcherState>,
-    source_id: String,
-) {
+pub fn clear_log_entries(state: State<SharedLogWatcherState>, source_id: String) {
     let mut state_guard = state.lock().unwrap();
     state_guard.clear_entries(&source_id);
 }

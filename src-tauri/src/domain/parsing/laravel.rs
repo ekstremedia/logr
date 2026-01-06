@@ -14,20 +14,15 @@ use super::LogParser;
 
 /// Regex for parsing Laravel log lines.
 static LARAVEL_LOG_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(
-        r"^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]\s+(\w+)\.(\w+):\s*(.*)$"
-    ).unwrap()
+    Regex::new(r"^\[(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\]\s+(\w+)\.(\w+):\s*(.*)$").unwrap()
 });
 
 /// Regex for detecting stack trace lines.
-static STACK_TRACE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^#\d+\s+").unwrap()
-});
+static STACK_TRACE_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^#\d+\s+").unwrap());
 
 /// Regex for detecting stack trace continuation.
-static CONTINUATION_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s+(?:at|in|thrown)\s+").unwrap()
-});
+static CONTINUATION_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s+(?:at|in|thrown)\s+").unwrap());
 
 /// Laravel log parser.
 #[derive(Debug, Default, Clone)]
@@ -251,14 +246,38 @@ mod tests {
         let parser = LaravelLogParser::new();
 
         let test_cases = [
-            ("[2024-01-15 10:30:00] local.DEBUG: Debug message", LogLevel::Debug),
-            ("[2024-01-15 10:30:00] local.INFO: Info message", LogLevel::Info),
-            ("[2024-01-15 10:30:00] local.NOTICE: Notice message", LogLevel::Notice),
-            ("[2024-01-15 10:30:00] local.WARNING: Warning message", LogLevel::Warning),
-            ("[2024-01-15 10:30:00] local.ERROR: Error message", LogLevel::Error),
-            ("[2024-01-15 10:30:00] local.CRITICAL: Critical message", LogLevel::Critical),
-            ("[2024-01-15 10:30:00] local.ALERT: Alert message", LogLevel::Alert),
-            ("[2024-01-15 10:30:00] local.EMERGENCY: Emergency message", LogLevel::Emergency),
+            (
+                "[2024-01-15 10:30:00] local.DEBUG: Debug message",
+                LogLevel::Debug,
+            ),
+            (
+                "[2024-01-15 10:30:00] local.INFO: Info message",
+                LogLevel::Info,
+            ),
+            (
+                "[2024-01-15 10:30:00] local.NOTICE: Notice message",
+                LogLevel::Notice,
+            ),
+            (
+                "[2024-01-15 10:30:00] local.WARNING: Warning message",
+                LogLevel::Warning,
+            ),
+            (
+                "[2024-01-15 10:30:00] local.ERROR: Error message",
+                LogLevel::Error,
+            ),
+            (
+                "[2024-01-15 10:30:00] local.CRITICAL: Critical message",
+                LogLevel::Critical,
+            ),
+            (
+                "[2024-01-15 10:30:00] local.ALERT: Alert message",
+                LogLevel::Alert,
+            ),
+            (
+                "[2024-01-15 10:30:00] local.EMERGENCY: Emergency message",
+                LogLevel::Emergency,
+            ),
         ];
 
         for (line, expected_level) in test_cases {
