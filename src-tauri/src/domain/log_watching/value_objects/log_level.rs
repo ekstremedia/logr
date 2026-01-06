@@ -8,9 +8,12 @@ use serde::{Deserialize, Serialize};
 pub enum LogLevel {
     Debug = 0,
     Info = 1,
-    Warning = 2,
-    Error = 3,
-    Critical = 4,
+    Notice = 2,
+    Warning = 3,
+    Error = 4,
+    Critical = 5,
+    Alert = 6,
+    Emergency = 7,
 }
 
 impl LogLevel {
@@ -32,10 +35,13 @@ impl LogLevel {
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().trim() {
             "debug" => LogLevel::Debug,
-            "info" | "information" | "notice" => LogLevel::Info,
+            "info" | "information" => LogLevel::Info,
+            "notice" => LogLevel::Notice,
             "warn" | "warning" => LogLevel::Warning,
             "error" | "err" => LogLevel::Error,
-            "critical" | "crit" | "emergency" | "emerg" | "alert" | "fatal" => LogLevel::Critical,
+            "critical" | "crit" | "fatal" => LogLevel::Critical,
+            "alert" => LogLevel::Alert,
+            "emergency" | "emerg" => LogLevel::Emergency,
             _ => LogLevel::Info,
         }
     }
@@ -55,9 +61,12 @@ impl LogLevel {
         match self {
             LogLevel::Debug => "log-level-debug",
             LogLevel::Info => "log-level-info",
+            LogLevel::Notice => "log-level-notice",
             LogLevel::Warning => "log-level-warning",
             LogLevel::Error => "log-level-error",
             LogLevel::Critical => "log-level-critical",
+            LogLevel::Alert => "log-level-alert",
+            LogLevel::Emergency => "log-level-emergency",
         }
     }
 }
@@ -73,9 +82,12 @@ impl std::fmt::Display for LogLevel {
         let s = match self {
             LogLevel::Debug => "DEBUG",
             LogLevel::Info => "INFO",
+            LogLevel::Notice => "NOTICE",
             LogLevel::Warning => "WARNING",
             LogLevel::Error => "ERROR",
             LogLevel::Critical => "CRITICAL",
+            LogLevel::Alert => "ALERT",
+            LogLevel::Emergency => "EMERGENCY",
         };
         write!(f, "{}", s)
     }

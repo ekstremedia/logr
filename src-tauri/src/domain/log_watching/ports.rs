@@ -53,7 +53,7 @@ pub enum WatchError {
 }
 
 /// Port for file watching operations.
-pub trait FileWatcher: Send + Sync {
+pub trait FileWatcher: Send {
     /// Start watching a file for changes.
     fn watch_file(&mut self, path: PathBuf) -> WatchResult<()>;
 

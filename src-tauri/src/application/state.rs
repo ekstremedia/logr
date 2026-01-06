@@ -5,20 +5,17 @@ use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
-use log::{error, info};
+use log::info;
 use tauri::{AppHandle, Emitter};
 
 use crate::domain::log_watching::log_entry::LogEntry;
 use crate::domain::log_watching::log_source::{LogSource, LogSourceStatus};
-use crate::domain::log_watching::ports::FileWatchEvent;
+use crate::domain::log_watching::ports::{FileWatchEvent, FileWatcher};
 use crate::domain::log_watching::value_objects::file_path::FilePath;
 use crate::domain::parsing::{LaravelLogParser, LogParser};
 use crate::infrastructure::file_system::NotifyFileWatcher;
 
-use super::events::{
-    event_names, FileTruncatedEvent, LogEntriesEvent, SourceAddedEvent, SourceRemovedEvent,
-    SourceStatusEvent,
-};
+use super::events::{event_names, FileTruncatedEvent, LogEntriesEvent, SourceStatusEvent};
 
 /// The application state for log watching.
 pub struct LogWatcherState {
@@ -124,7 +121,7 @@ impl LogWatcherState {
             .remove(id)
             .ok_or_else(|| "Source not found".to_string())?;
 
-        let path_buf = PathBuf::from(source.path.as_str());
+        let path_buf: PathBuf = source.path.value().to_path_buf();
         self.path_to_source.remove(&path_buf);
         self.entries.remove(id);
 
@@ -193,7 +190,7 @@ impl LogWatcherState {
             .get(source_id)
             .ok_or_else(|| "Source not found".to_string())?;
 
-        let path = PathBuf::from(source.path.as_str());
+        let path = source.path.value().to_path_buf();
         let lines = self
             .watcher
             .read_initial_content(&path, max_lines)
