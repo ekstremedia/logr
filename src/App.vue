@@ -6,6 +6,7 @@ import { useWindowStore } from '@application/stores/windowStore';
 import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
 import { useTheme } from '@presentation/composables/useTheme';
 import ThemeToggle from '@presentation/components/common/ThemeToggle.vue';
+import { LogLine } from '@presentation/components/log-viewer';
 
 const logStore = useLogStore();
 const windowStore = useWindowStore();
@@ -94,33 +95,6 @@ async function handleAddLogFolder() {
 useKeyboardShortcuts({
   onAddNew: handleAddLogFile,
 });
-
-function formatTimestamp(date: Date | null): string {
-  if (!date) return '--:--:--';
-  return date.toLocaleTimeString();
-}
-
-function getLevelClass(level: string): string {
-  const levelLower = level.toLowerCase();
-  switch (levelLower) {
-    case 'emergency':
-    case 'alert':
-    case 'critical':
-      return 'text-red-600 dark:text-red-400 font-bold';
-    case 'error':
-      return 'text-red-500 dark:text-red-400';
-    case 'warning':
-      return 'text-amber-500 dark:text-amber-400';
-    case 'notice':
-      return 'text-blue-500 dark:text-blue-400';
-    case 'info':
-      return 'text-green-500 dark:text-green-400';
-    case 'debug':
-      return 'text-gray-500 dark:text-gray-400';
-    default:
-      return 'text-surface-600 dark:text-surface-400';
-  }
-}
 </script>
 
 <template>
@@ -218,7 +192,7 @@ function getLevelClass(level: string): string {
       <!-- Log Viewer -->
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Log entries -->
-        <div v-if="logStore.activeSource" class="flex-1 overflow-auto font-mono text-sm">
+        <div v-if="logStore.activeSource" class="flex-1 overflow-auto">
           <div
             v-if="logStore.activeEntries.length === 0"
             class="flex items-center justify-center h-full text-surface-500 dark:text-surface-400"
@@ -226,27 +200,9 @@ function getLevelClass(level: string): string {
             No log entries yet. Waiting for new content...
           </div>
 
-          <table v-else class="w-full">
-            <tbody>
-              <tr
-                v-for="entry in logStore.activeEntries"
-                :key="entry.id"
-                class="hover:bg-surface-100 dark:hover:bg-surface-800/50 border-b border-surface-100 dark:border-surface-800"
-              >
-                <td class="px-2 py-1 text-surface-400 dark:text-surface-600 text-xs w-20">
-                  {{ formatTimestamp(entry.timestamp) }}
-                </td>
-                <td class="px-2 py-1 w-20">
-                  <span :class="getLevelClass(entry.level.value)" class="text-xs uppercase">
-                    {{ entry.level.value }}
-                  </span>
-                </td>
-                <td class="px-2 py-1 text-surface-800 dark:text-surface-200">
-                  {{ entry.message }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-else>
+            <LogLine v-for="entry in logStore.activeEntries" :key="entry.id" :entry="entry" />
+          </div>
         </div>
 
         <!-- Empty state -->

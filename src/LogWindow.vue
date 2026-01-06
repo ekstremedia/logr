@@ -13,6 +13,7 @@ import { WindowApi } from '@infrastructure/tauri';
 import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
 import { useTheme } from '@presentation/composables/useTheme';
 import ThemeToggle from '@presentation/components/common/ThemeToggle.vue';
+import { LogLine } from '@presentation/components/log-viewer';
 
 const props = defineProps<{
   sourceId: string;
@@ -90,33 +91,6 @@ setInterval(() => {
   }
 }, 100);
 
-function formatTimestamp(date: Date | null): string {
-  if (!date) return '--:--:--';
-  return date.toLocaleTimeString();
-}
-
-function getLevelClass(level: string): string {
-  const levelLower = level.toLowerCase();
-  switch (levelLower) {
-    case 'emergency':
-    case 'alert':
-    case 'critical':
-      return 'text-red-600 dark:text-red-400 font-bold';
-    case 'error':
-      return 'text-red-500 dark:text-red-400';
-    case 'warning':
-      return 'text-amber-500 dark:text-amber-400';
-    case 'notice':
-      return 'text-blue-500 dark:text-blue-400';
-    case 'info':
-      return 'text-green-500 dark:text-green-400';
-    case 'debug':
-      return 'text-gray-500 dark:text-gray-400';
-    default:
-      return 'text-surface-600 dark:text-surface-400';
-  }
-}
-
 async function handleClearEntries() {
   await logStore.clearEntries(props.sourceId);
 }
@@ -177,7 +151,7 @@ async function handleFocusMain() {
     </header>
 
     <!-- Log entries -->
-    <div ref="logContainer" class="flex-1 overflow-auto font-mono text-sm" @scroll="handleScroll">
+    <div ref="logContainer" class="flex-1 overflow-auto" @scroll="handleScroll">
       <div
         v-if="entries.length === 0"
         class="flex items-center justify-center h-full text-surface-500 dark:text-surface-400"
@@ -185,29 +159,9 @@ async function handleFocusMain() {
         No log entries yet. Waiting for new content...
       </div>
 
-      <table v-else class="w-full">
-        <tbody>
-          <tr
-            v-for="entry in entries"
-            :key="entry.id"
-            class="hover:bg-surface-100 dark:hover:bg-surface-800/50 border-b border-surface-100 dark:border-surface-800"
-          >
-            <td
-              class="px-2 py-1 text-surface-400 dark:text-surface-600 text-xs w-20 whitespace-nowrap"
-            >
-              {{ formatTimestamp(entry.timestamp) }}
-            </td>
-            <td class="px-2 py-1 w-20">
-              <span :class="getLevelClass(entry.level.value)" class="text-xs uppercase">
-                {{ entry.level.value }}
-              </span>
-            </td>
-            <td class="px-2 py-1 text-surface-800 dark:text-surface-200 break-all">
-              {{ entry.message }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else>
+        <LogLine v-for="entry in entries" :key="entry.id" :entry="entry" />
+      </div>
     </div>
 
     <!-- Status bar -->
