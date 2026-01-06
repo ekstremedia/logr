@@ -1,6 +1,14 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
+    <script>
+      // Apply theme immediately to prevent flash
+      (function() {
+        var theme = localStorage.getItem('logr-theme') || 'dark';
+        var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.add(isDark ? 'dark' : 'light');
+      })();
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/logr.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

@@ -4,9 +4,14 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { useLogStore } from '@application/stores/logStore';
 import { useWindowStore } from '@application/stores/windowStore';
 import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
+import { useTheme } from '@presentation/composables/useTheme';
+import ThemeToggle from '@presentation/components/common/ThemeToggle.vue';
 
 const logStore = useLogStore();
 const windowStore = useWindowStore();
+
+// Initialize theme
+useTheme();
 
 onMounted(async () => {
   await logStore.initialize();
@@ -129,7 +134,8 @@ function getLevelClass(level: string): string {
           <img src="/logr.svg" class="w-8 h-8" alt="Logr logo" />
           <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100">Logr</h1>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
+          <ThemeToggle />
           <span class="text-sm text-surface-500 dark:text-surface-400">v0.1.0</span>
         </div>
       </div>

@@ -11,6 +11,8 @@ import { useLogStore } from '@application/stores/logStore';
 import { useWindowStore } from '@application/stores/windowStore';
 import { WindowApi } from '@infrastructure/tauri';
 import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
+import { useTheme } from '@presentation/composables/useTheme';
+import ThemeToggle from '@presentation/components/common/ThemeToggle.vue';
 
 const props = defineProps<{
   sourceId: string;
@@ -19,8 +21,9 @@ const props = defineProps<{
 const logStore = useLogStore();
 const windowStore = useWindowStore();
 
-// Set up keyboard shortcuts
+// Set up keyboard shortcuts and theme
 useKeyboardShortcuts();
+useTheme();
 
 // Auto-scroll state
 const autoScroll = ref(true);
@@ -153,6 +156,7 @@ async function handleFocusMain() {
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <ThemeToggle />
           <button
             class="text-xs text-surface-500 dark:text-surface-400 hover:text-surface-700 dark:hover:text-surface-200"
             @click="handleFocusMain"

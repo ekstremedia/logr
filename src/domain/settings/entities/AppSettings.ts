@@ -1,4 +1,5 @@
-export type ThemeMode = 'light' | 'dark' | 'system';
+import type { ThemeMode } from '../value-objects/Theme';
+
 export type StartupBehavior = 'empty' | 'lastSession' | 'preset';
 
 /**
