@@ -6,7 +6,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
 use log::{error, info};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::domain::log_watching::log_entry::LogEntry;
 use crate::domain::log_watching::log_source::{LogSource, LogSourceStatus};

@@ -4,6 +4,10 @@ npx lint-staged
 # Format Rust code if any Rust files are staged
 if git diff --cached --name-only | grep -q "^src-tauri/"; then
   echo "Formatting Rust code..."
-  cargo fmt --manifest-path src-tauri/Cargo.toml
-  git add src-tauri/
+  if [ -f "$HOME/.cargo/bin/cargo" ]; then
+    "$HOME/.cargo/bin/cargo" fmt --manifest-path src-tauri/Cargo.toml
+    git add src-tauri/
+  else
+    echo "Warning: cargo not found, skipping Rust formatting"
+  fi
 fi
