@@ -1,6 +1,7 @@
 import type { ThemeMode } from '../value-objects/Theme';
 
 export type StartupBehavior = 'empty' | 'lastSession' | 'preset';
+export type PreferredIde = 'phpstorm' | 'vscode' | 'custom';
 
 /**
  * Application settings configuration.
@@ -17,6 +18,8 @@ export interface AppSettingsProps {
   startupPresetId?: string;
   notificationSound: boolean;
   globalHotkeysEnabled: boolean;
+  preferredIde: PreferredIde;
+  customIdeCommand: string;
 }
 
 /**
@@ -33,6 +36,8 @@ const DEFAULT_SETTINGS: AppSettingsProps = {
   startupBehavior: 'lastSession',
   notificationSound: true,
   globalHotkeysEnabled: true,
+  preferredIde: 'phpstorm',
+  customIdeCommand: '',
 };
 
 /**
@@ -50,6 +55,8 @@ export class AppSettings {
   public readonly startupPresetId: string | null;
   public readonly notificationSound: boolean;
   public readonly globalHotkeysEnabled: boolean;
+  public readonly preferredIde: PreferredIde;
+  public readonly customIdeCommand: string;
 
   private constructor(props: AppSettingsProps) {
     this.theme = props.theme;
@@ -63,6 +70,8 @@ export class AppSettings {
     this.startupPresetId = props.startupPresetId ?? null;
     this.notificationSound = props.notificationSound;
     this.globalHotkeysEnabled = props.globalHotkeysEnabled;
+    this.preferredIde = props.preferredIde;
+    this.customIdeCommand = props.customIdeCommand;
     Object.freeze(this);
   }
 
@@ -112,6 +121,8 @@ export class AppSettings {
       startupPresetId: this.startupPresetId ?? undefined,
       notificationSound: this.notificationSound,
       globalHotkeysEnabled: this.globalHotkeysEnabled,
+      preferredIde: this.preferredIde,
+      customIdeCommand: this.customIdeCommand,
     };
   }
 }

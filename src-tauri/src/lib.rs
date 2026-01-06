@@ -25,10 +25,10 @@ pub mod application;
 pub mod infrastructure;
 
 use application::commands::{
-    add_log_file, add_log_folder, clear_log_entries, close_log_window, create_log_window,
-    detect_laravel_logs, focus_window, focus_window_by_index, get_all_windows, get_laravel_logs,
-    get_latest_laravel_log, get_log_entries, get_log_source, get_log_sources,
-    get_window_for_source, get_window_info, read_initial_content, remove_log_source,
+    add_log_file, add_log_folder, clear_all_sources, clear_log_entries, close_log_window,
+    create_log_window, detect_laravel_logs, focus_window, focus_window_by_index, get_all_windows,
+    get_laravel_logs, get_latest_laravel_log, get_log_entries, get_log_source, get_log_sources,
+    get_window_for_source, get_window_info, open_in_ide, read_initial_content, remove_log_source,
     set_window_index, update_source_status, WindowManagerState,
 };
 use application::state::{start_event_processor, LogWatcherState};
@@ -53,11 +53,18 @@ pub fn run() {
     // Create the window manager state
     let window_state = Arc::new(Mutex::new(WindowManagerState::new()));
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init());
+
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+    }
+
+    builder
         .manage(watcher_state.clone())
         .manage(window_state)
         .setup(move |app| {
@@ -71,6 +78,7 @@ pub fn run() {
             add_log_file,
             add_log_folder,
             remove_log_source,
+            clear_all_sources,
             get_log_sources,
             get_log_source,
             get_log_entries,
@@ -90,6 +98,8 @@ pub fn run() {
             get_window_info,
             set_window_index,
             get_window_for_source,
+            // IDE integration
+            open_in_ide,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

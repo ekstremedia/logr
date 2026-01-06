@@ -42,7 +42,10 @@ export class LogLevel {
    * @param level - The log level string (case-insensitive)
    * @returns A new LogLevel instance
    */
-  static fromString(level: string): LogLevel {
+  static fromString(level: string | unknown): LogLevel {
+    if (typeof level !== 'string') {
+      return new LogLevel('info', SEVERITY_MAP['info']);
+    }
     const normalizedLevel = level.toLowerCase().trim();
     const mappedLevel = LEVEL_ALIASES[normalizedLevel] ?? 'info';
     return new LogLevel(mappedLevel, SEVERITY_MAP[mappedLevel]);

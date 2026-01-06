@@ -6,12 +6,14 @@
  * - Log level badge with color coding
  * - Timestamp display
  * - Message with clickable URLs
- * - Expandable stack traces
+ * - Expandable stack traces with clickable file paths
  * - JSON context display
  */
 import { ref, computed } from 'vue';
 import type { LogEntry } from '@domain/log-watching';
 import LogLevelBadge from './LogLevelBadge.vue';
+import { LogApi } from '@infrastructure/tauri/logApi';
+import { useSettingsStore } from '@application/stores/settingsStore';
 
 const props = defineProps<{
   entry: LogEntry;
@@ -22,8 +24,115 @@ const emit = defineEmits<{
   (e: 'copy', text: string): void;
 }>();
 
+const settingsStore = useSettingsStore();
 const isStackTraceExpanded = ref(false);
 const isContextExpanded = ref(false);
+
+/**
+ * Parsed file path from a stack frame.
+ */
+interface ParsedFilePath {
+  file: string;
+  line: number;
+  display: string;
+}
+
+/**
+ * Parsed stack frame segment (text or clickable file path).
+ */
+type StackFrameSegment = { type: 'text'; value: string } | { type: 'file'; value: ParsedFilePath };
+
+/**
+ * Parse a stack frame to extract file path and line number.
+ * Matches patterns like:
+ * - #0 /path/to/file.php(123): method()
+ * - /path/to/file.php:123
+ * - at /path/to/file.php:123
+ */
+function parseStackFrame(frame: string): StackFrameSegment[] {
+  const segments: StackFrameSegment[] = [];
+
+  // Pattern for Laravel stacktrace: /path/file.php(123): or /path/file.php(123)
+  const laravelPattern = /(\/[^\s:(]+)\((\d+)\)/g;
+  // Pattern for generic file:line
+  const genericPattern = /(\/[^\s:]+):(\d+)/g;
+
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  const matches: Array<{ index: number; length: number; file: string; line: number }> = [];
+
+  // Find all Laravel-style matches
+  while ((match = laravelPattern.exec(frame)) !== null) {
+    matches.push({
+      index: match.index,
+      length: match[0].length,
+      file: match[1],
+      line: parseInt(match[2], 10),
+    });
+  }
+
+  // Find all generic-style matches (only if no overlap with Laravel matches)
+  while ((match = genericPattern.exec(frame)) !== null) {
+    const overlaps = matches.some(
+      m => match!.index >= m.index && match!.index < m.index + m.length
+    );
+    if (!overlaps) {
+      matches.push({
+        index: match.index,
+        length: match[0].length,
+        file: match[1],
+        line: parseInt(match[2], 10),
+      });
+    }
+  }
+
+  // Sort matches by index
+  matches.sort((a, b) => a.index - b.index);
+
+  // Build segments
+  for (const m of matches) {
+    if (m.index > lastIndex) {
+      segments.push({
+        type: 'text',
+        value: frame.slice(lastIndex, m.index),
+      });
+    }
+    segments.push({
+      type: 'file',
+      value: {
+        file: m.file,
+        line: m.line,
+        display: frame.slice(m.index, m.index + m.length),
+      },
+    });
+    lastIndex = m.index + m.length;
+  }
+
+  if (lastIndex < frame.length) {
+    segments.push({
+      type: 'text',
+      value: frame.slice(lastIndex),
+    });
+  }
+
+  return segments.length > 0 ? segments : [{ type: 'text', value: frame }];
+}
+
+/**
+ * Open a file in the configured IDE.
+ */
+async function openInIde(file: string, line: number) {
+  try {
+    await LogApi.openInIde(
+      file,
+      line,
+      settingsStore.preferredIde,
+      settingsStore.preferredIde === 'custom' ? settingsStore.customIdeCommand : undefined
+    );
+  } catch (error) {
+    console.error('Failed to open file in IDE:', error);
+  }
+}
 
 /**
  * Format the timestamp for display.
@@ -199,12 +308,20 @@ function toggleContext() {
         class="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-md p-2 font-mono text-xs"
       >
         <div
-          v-for="(frame, index) in entry.stackTrace"
-          :key="index"
-          class="text-red-700 dark:text-red-300 py-0.5 hover:bg-red-100 dark:hover:bg-red-900/30 px-1 -mx-1 rounded cursor-pointer"
-          @click="copyToClipboard(frame)"
+          v-for="(frame, frameIndex) in entry.stackTrace"
+          :key="frameIndex"
+          class="text-red-700 dark:text-red-300 py-0.5 px-1 -mx-1 rounded"
         >
-          {{ frame }}
+          <template v-for="(segment, segIndex) in parseStackFrame(frame)" :key="segIndex">
+            <span
+              v-if="segment.type === 'file'"
+              class="text-blue-600 dark:text-blue-400 hover:underline cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded px-0.5 -mx-0.5"
+              :title="`Open ${segment.value.file}:${segment.value.line} in ${settingsStore.preferredIde}`"
+              @click.stop="openInIde(segment.value.file, segment.value.line)"
+              >{{ segment.value.display }}</span
+            >
+            <span v-else>{{ segment.value }}</span>
+          </template>
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@
  * SearchBar component - Search input with regex and case sensitivity options.
  */
 import { ref, computed } from 'vue';
-import { useSearch } from '@presentation/composables/useSearch';
+import { useSharedSearch } from '@presentation/composables/useSearch';
 
 const props = defineProps<{
   modelValue?: string;
@@ -24,7 +24,7 @@ const {
   toggleCaseSensitive,
   clearSearch,
   restoreFromHistory,
-} = useSearch();
+} = useSharedSearch();
 
 const inputRef = ref<HTMLInputElement | null>(null);
 const showHistory = ref(false);

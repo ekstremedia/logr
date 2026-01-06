@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "tauri-mcp": {
+      "command": "/opt/homebrew/bin/mcp-server-tauri"
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/context7-mcp@latest"]
+    }
+  }
+}

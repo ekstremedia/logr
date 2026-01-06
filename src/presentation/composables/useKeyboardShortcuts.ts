@@ -1,15 +1,16 @@
 /**
- * Keyboard shortcuts composable for window navigation.
+ * Keyboard shortcuts composable for navigation.
  *
  * Provides global keyboard shortcuts:
- * - Alt+0: Focus main window
- * - Alt+1-9: Focus log window by index
+ * - Cmd+1-9 (Mac) / Alt+1-9 (Win/Linux): Switch to log source by index
  * - Cmd/Ctrl+W: Close current log window
  * - Cmd/Ctrl+N: Add new log file (main window only)
+ * - Cmd/Ctrl+F: Focus search bar
  */
 
 import { onMounted, onUnmounted } from 'vue';
 import { useWindowStore } from '@application/stores/windowStore';
+import { useLogStore } from '@application/stores/logStore';
 import { WindowApi } from '@infrastructure/tauri';
 
 export interface KeyboardShortcutsOptions {
@@ -32,15 +33,33 @@ export interface KeyboardShortcutsOptions {
  */
 export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}) {
   const windowStore = useWindowStore();
+  const logStore = useLogStore();
+
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
   function handleKeyDown(event: KeyboardEvent) {
-    // Alt + number: Switch windows
-    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
-      const key = event.key;
-      if (key >= '0' && key <= '9') {
+    // Cmd+number on Mac, Alt+number on Windows/Linux: Switch log sources
+    const modifierPressed = isMac ? event.metaKey : event.altKey;
+    const otherModifiers = isMac ? event.altKey || event.ctrlKey : event.ctrlKey || event.metaKey;
+
+    if (modifierPressed && !otherModifiers && !event.shiftKey) {
+      const code = event.code;
+      const digitMatch = code.match(/^Digit(\d)$/);
+      if (digitMatch) {
         event.preventDefault();
-        const index = parseInt(key, 10);
-        windowStore.switchToWindow(index);
+        const index = parseInt(digitMatch[1], 10);
+
+        if (index === 0) {
+          // Mod+0: Focus main window
+          windowStore.switchToWindow(0);
+        } else {
+          // Mod+1-9: Switch to log source by index (1-based)
+          const sources = logStore.activeSources;
+          const sourceIndex = index - 1; // Convert to 0-based index
+          if (sourceIndex < sources.length) {
+            logStore.setActiveSource(sources[sourceIndex].id);
+          }
+        }
         return;
       }
     }

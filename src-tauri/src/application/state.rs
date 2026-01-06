@@ -125,11 +125,25 @@ impl LogWatcherState {
         self.path_to_source.remove(&path_buf);
         self.entries.remove(id);
 
-        self.watcher
-            .unwatch(&path_buf)
-            .map_err(|e| format!("Failed to unwatch: {}", e))?;
+        // Try to unwatch, but don't fail if it doesn't work
+        if let Err(e) = self.watcher.unwatch(&path_buf) {
+            log::warn!("Failed to unwatch {}: {}", path_buf.display(), e);
+        }
 
         Ok(())
+    }
+
+    /// Clear all sources (used for workspace switching).
+    pub fn clear_all_sources(&mut self) {
+        // Use unwatch_all which properly clears the watcher's internal state
+        self.watcher.unwatch_all();
+
+        // Clear all application state
+        self.sources.clear();
+        self.path_to_source.clear();
+        self.entries.clear();
+
+        info!("Cleared all sources");
     }
 
     /// Get all sources.
@@ -188,18 +202,52 @@ impl LogWatcherState {
         let source = self
             .sources
             .get(source_id)
-            .ok_or_else(|| "Source not found".to_string())?;
+            .ok_or_else(|| "Source not found".to_string())?
+            .clone();
 
         let path = source.path.value().to_path_buf();
-        let lines = self
-            .watcher
-            .read_initial_content(&path, max_lines)
-            .map_err(|e| format!("Failed to read file: {}", e))?;
 
         let mut entries = Vec::new();
-        for (line_num, line) in lines {
-            let entry = self.parse_line(&line, line_num as u64);
-            entries.push(entry);
+
+        if source.is_folder() {
+            // For folder sources, read all matching files
+            if let Some(pattern) = &source.pattern {
+                if let Ok(glob) = glob::Pattern::new(pattern) {
+                    if let Ok(dir_entries) = std::fs::read_dir(&path) {
+                        // Collect matching files and sort by name (for Laravel logs this gives chronological order)
+                        let mut matching_files: Vec<PathBuf> = dir_entries
+                            .filter_map(|e| e.ok())
+                            .map(|e| e.path())
+                            .filter(|p| {
+                                p.is_file()
+                                    && p.file_name()
+                                        .map(|n| glob.matches(n.to_string_lossy().as_ref()))
+                                        .unwrap_or(false)
+                            })
+                            .collect();
+
+                        matching_files.sort();
+
+                        // Read from the most recent file (last in sorted order)
+                        if let Some(latest_file) = matching_files.last() {
+                            let lines = self
+                                .watcher
+                                .read_initial_content(latest_file, max_lines)
+                                .map_err(|e| format!("Failed to read file: {}", e))?;
+
+                            entries = self.parse_lines_multiline(&lines);
+                        }
+                    }
+                }
+            }
+        } else {
+            // For file sources, read directly
+            let lines = self
+                .watcher
+                .read_initial_content(&path, max_lines)
+                .map_err(|e| format!("Failed to read file: {}", e))?;
+
+            entries = self.parse_lines_multiline(&lines);
         }
 
         // Store entries
@@ -228,14 +276,75 @@ impl LogWatcherState {
         LogEntry::from_raw(line.to_string(), line_number)
     }
 
+    /// Parse multiple lines with multiline support (for stacktraces, etc.).
+    fn parse_lines_multiline(&self, lines: &[(usize, String)]) -> Vec<LogEntry> {
+        let mut entries = Vec::new();
+        let line_refs: Vec<&str> = lines.iter().map(|(_, s)| s.as_str()).collect();
+        let mut i = 0;
+
+        while i < line_refs.len() {
+            let line_number = lines[i].0 as u64;
+            let remaining = &line_refs[i..];
+
+            // Try multiline parsing first
+            let mut parsed = false;
+            for parser in &self.parsers {
+                if parser.can_parse(remaining[0]) {
+                    if let Some((entry, consumed)) = parser.parse_multiline(remaining, line_number)
+                    {
+                        entries.push(entry);
+                        i += consumed;
+                        parsed = true;
+                        break;
+                    }
+                }
+            }
+
+            // Fall back to single-line parsing
+            if !parsed {
+                entries.push(self.parse_line(remaining[0], line_number));
+                i += 1;
+            }
+        }
+
+        entries
+    }
+
     /// Take the event receiver for processing file events.
     pub fn take_event_receiver(&mut self) -> Option<Receiver<FileWatchEvent>> {
         self.watcher.take_event_receiver()
     }
 
     /// Get source ID for a path.
+    /// For file sources, matches exact path.
+    /// For folder sources, matches if the file is inside the watched folder.
     pub fn get_source_id_for_path(&self, path: &PathBuf) -> Option<String> {
-        self.path_to_source.get(path).cloned()
+        // First try exact match
+        if let Some(id) = self.path_to_source.get(path) {
+            return Some(id.clone());
+        }
+
+        // For files inside watched folders, check parent directories
+        if let Some(parent) = path.parent() {
+            for (watched_path, source_id) in &self.path_to_source {
+                if let Some(source) = self.sources.get(source_id) {
+                    if source.is_folder() && parent.starts_with(watched_path) {
+                        // Check if file matches the pattern
+                        if let Some(pattern) = &source.pattern {
+                            if let Ok(glob) = glob::Pattern::new(pattern) {
+                                if let Some(file_name) = path.file_name() {
+                                    if glob.matches(file_name.to_string_lossy().as_ref()) {
+                                        return Some(source_id.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
     }
 
     /// Add entries to a source.

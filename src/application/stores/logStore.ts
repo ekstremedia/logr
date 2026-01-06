@@ -3,13 +3,19 @@
  */
 
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, triggerRef } from 'vue';
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { LogApi, type BackendLogSource, type BackendLogEntry } from '@infrastructure/tauri';
 import { LogEntry } from '@domain/log-watching/entities/LogEntry';
 import { LogSource } from '@domain/log-watching/entities/LogSource';
 import { FilePath } from '@domain/log-watching/value-objects/FilePath';
 import { LogLevel } from '@domain/log-watching/value-objects/LogLevel';
+import {
+  SessionStorage,
+  NamedSessionStorage,
+  type SessionSourceData,
+  type NamedSession,
+} from '@infrastructure/storage/localStorageService';
 
 /**
  * Convert backend log entry to domain log entry.
@@ -76,6 +82,7 @@ export const useLogStore = defineStore('log', () => {
         const sourceEntries = entries.value.get(event.source_id) ?? [];
         const newEntries = event.entries.map(toLogEntry);
         entries.value.set(event.source_id, [...sourceEntries, ...newEntries]);
+        triggerRef(entries);
       });
 
       const sourceStatusUnlisten = await LogApi.onSourceStatus(event => {
@@ -88,19 +95,38 @@ export const useLogStore = defineStore('log', () => {
 
       const fileTruncatedUnlisten = await LogApi.onFileTruncated(event => {
         entries.value.set(event.source_id, []);
+        triggerRef(entries);
       });
 
       unlisteners.value = [logEntriesUnlisten, sourceStatusUnlisten, fileTruncatedUnlisten];
 
-      // Load existing sources
+      // Load existing sources from backend
       const backendSources = await LogApi.getLogSources();
       for (const source of backendSources) {
-        sources.value.set(source.id, toLogSource(source));
+        const logSource = toLogSource(source);
+        sources.value.set(source.id, logSource);
+        triggerRef(sources);
+        entries.value.set(source.id, []);
+        triggerRef(entries);
+
+        // Read initial content for each source
+        try {
+          const initialEntries = await LogApi.readInitialContent(source.id, 1000);
+          entries.value.set(source.id, initialEntries.map(toLogEntry));
+          triggerRef(entries);
+        } catch (e) {
+          console.warn(`Failed to read initial content for ${source.id}:`, e);
+        }
       }
 
-      // Set first source as active if any exist
-      if (backendSources.length > 0 && !activeSourceId.value) {
-        activeSourceId.value = backendSources[0].id;
+      // If no sources exist, try to restore from last session
+      if (backendSources.length === 0) {
+        await restoreSession();
+      } else {
+        // Set first source as active if any exist
+        if (!activeSourceId.value) {
+          activeSourceId.value = backendSources[0].id;
+        }
       }
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to initialize';
@@ -126,16 +152,23 @@ export const useLogStore = defineStore('log', () => {
         const source = toLogSource(response.source);
         sources.value.set(source.id, source);
         entries.value.set(source.id, []);
-
-        // Read initial content
-        const initialEntries = await LogApi.readInitialContent(source.id, 1000);
-        entries.value.set(source.id, initialEntries.map(toLogEntry));
+        triggerRef(entries);
 
         // Set as active if first source
         if (!activeSourceId.value) {
           activeSourceId.value = source.id;
         }
 
+        // Read initial content (don't fail if this errors)
+        try {
+          const initialEntries = await LogApi.readInitialContent(source.id, 1000);
+          entries.value.set(source.id, initialEntries.map(toLogEntry));
+          triggerRef(entries);
+        } catch (e) {
+          console.warn('Failed to read initial content:', e);
+        }
+
+        saveSession();
         return source;
       } else {
         throw new Error(response.error ?? 'Failed to add file');
@@ -158,12 +191,23 @@ export const useLogStore = defineStore('log', () => {
         const source = toLogSource(response.source);
         sources.value.set(source.id, source);
         entries.value.set(source.id, []);
+        triggerRef(entries);
 
         // Set as active if first source
         if (!activeSourceId.value) {
           activeSourceId.value = source.id;
         }
 
+        // Read initial content from matching files (don't fail if this errors)
+        try {
+          const initialEntries = await LogApi.readInitialContent(source.id, 1000);
+          entries.value.set(source.id, initialEntries.map(toLogEntry));
+          triggerRef(entries);
+        } catch (e) {
+          console.warn('Failed to read initial content:', e);
+        }
+
+        saveSession();
         return source;
       } else {
         throw new Error(response.error ?? 'Failed to add folder');
@@ -184,12 +228,15 @@ export const useLogStore = defineStore('log', () => {
       await LogApi.removeLogSource(sourceId);
       sources.value.delete(sourceId);
       entries.value.delete(sourceId);
+      triggerRef(entries);
 
       // Update active source if needed
       if (activeSourceId.value === sourceId) {
         const remaining = Array.from(sources.value.keys());
         activeSourceId.value = remaining[0] ?? null;
       }
+
+      saveSession();
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to remove source';
       throw e;
@@ -208,6 +255,7 @@ export const useLogStore = defineStore('log', () => {
     try {
       await LogApi.clearLogEntries(sourceId);
       entries.value.set(sourceId, []);
+      triggerRef(entries);
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to clear entries';
       throw e;
@@ -240,6 +288,181 @@ export const useLogStore = defineStore('log', () => {
     }
   }
 
+  /**
+   * Save current session to localStorage.
+   */
+  function saveSession() {
+    const sessionSources: SessionSourceData[] = Array.from(sources.value.values()).map(source => ({
+      path: source.path.value,
+      type: source.type,
+      pattern: source.pattern ?? undefined,
+      name: source.name,
+    }));
+
+    const activeSource = sources.value.get(activeSourceId.value ?? '');
+    SessionStorage.saveSession({
+      sources: sessionSources,
+      activeSourcePath: activeSource?.path.value ?? null,
+    });
+  }
+
+  /**
+   * Restore session from localStorage.
+   */
+  async function restoreSession() {
+    const session = SessionStorage.loadSession();
+    if (!session || session.sources.length === 0) {
+      return;
+    }
+
+    let restoredActiveSourceId: string | null = null;
+
+    for (const sourceData of session.sources) {
+      try {
+        let source: LogSource | undefined;
+        if (sourceData.type === 'file') {
+          source = await addFile(sourceData.path, sourceData.name);
+        } else {
+          source = await addFolder(sourceData.path, sourceData.pattern ?? '*.log', sourceData.name);
+        }
+
+        // Track if this was the active source
+        if (source && sourceData.path === session.activeSourcePath) {
+          restoredActiveSourceId = source.id;
+        }
+      } catch (e) {
+        console.warn(`Failed to restore source: ${sourceData.path}`, e);
+      }
+    }
+
+    // Restore active source
+    if (restoredActiveSourceId) {
+      activeSourceId.value = restoredActiveSourceId;
+    }
+  }
+
+  // Named sessions state
+  const namedSessions = ref<NamedSession[]>(NamedSessionStorage.getSessions());
+
+  /**
+   * Refresh named sessions from storage.
+   */
+  function refreshNamedSessions() {
+    namedSessions.value = NamedSessionStorage.getSessions();
+  }
+
+  /**
+   * Save current sources as a named session.
+   */
+  function saveAsNamedSession(name: string): NamedSession {
+    const sessionSources: SessionSourceData[] = Array.from(sources.value.values()).map(source => ({
+      path: source.path.value,
+      type: source.type,
+      pattern: source.pattern ?? undefined,
+      name: source.name,
+    }));
+
+    const now = new Date().toISOString();
+    const session: NamedSession = {
+      id: NamedSessionStorage.generateId(),
+      name,
+      sources: sessionSources,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    NamedSessionStorage.saveSession(session);
+    refreshNamedSessions();
+    return session;
+  }
+
+  /**
+   * Update an existing named session with current sources.
+   */
+  function updateNamedSession(sessionId: string): void {
+    const existing = NamedSessionStorage.getSession(sessionId);
+    if (!existing) return;
+
+    const sessionSources: SessionSourceData[] = Array.from(sources.value.values()).map(source => ({
+      path: source.path.value,
+      type: source.type,
+      pattern: source.pattern ?? undefined,
+      name: source.name,
+    }));
+
+    const updated: NamedSession = {
+      ...existing,
+      sources: sessionSources,
+      updatedAt: new Date().toISOString(),
+    };
+
+    NamedSessionStorage.saveSession(updated);
+    refreshNamedSessions();
+  }
+
+  /**
+   * Delete a named session.
+   */
+  function deleteNamedSession(sessionId: string): void {
+    NamedSessionStorage.deleteSession(sessionId);
+    refreshNamedSessions();
+  }
+
+  /**
+   * Clear all current sources.
+   */
+  async function clearAllSources(): Promise<void> {
+    try {
+      // Clear backend state (this clears all watchers and state)
+      await LogApi.clearAllSources();
+    } catch (e) {
+      console.warn('Failed to clear backend sources:', e);
+    }
+
+    // Always clear frontend state
+    sources.value.clear();
+    entries.value.clear();
+    triggerRef(entries);
+    activeSourceId.value = null;
+    error.value = null;
+  }
+
+  /**
+   * Load a named session (clears current sources and loads the session).
+   */
+  async function loadNamedSession(sessionId: string): Promise<void> {
+    const session = NamedSessionStorage.getSession(sessionId);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    // Clear current sources
+    await clearAllSources();
+
+    // Load session sources
+    let firstSourceId: string | null = null;
+    for (const sourceData of session.sources) {
+      try {
+        let source: LogSource | undefined;
+        if (sourceData.type === 'file') {
+          source = await addFile(sourceData.path, sourceData.name);
+        } else {
+          source = await addFolder(sourceData.path, sourceData.pattern ?? '*.log', sourceData.name);
+        }
+        if (source && !firstSourceId) {
+          firstSourceId = source.id;
+        }
+      } catch (e) {
+        console.warn(`Failed to load source: ${sourceData.path}`, e);
+      }
+    }
+
+    // Set first source as active
+    if (firstSourceId) {
+      activeSourceId.value = firstSourceId;
+    }
+  }
+
   return {
     // State
     sources,
@@ -247,6 +470,7 @@ export const useLogStore = defineStore('log', () => {
     activeSourceId,
     isLoading,
     error,
+    namedSessions,
 
     // Computed
     activeSources,
@@ -263,5 +487,12 @@ export const useLogStore = defineStore('log', () => {
     clearEntries,
     pauseSource,
     resumeSource,
+
+    // Named session actions
+    saveAsNamedSession,
+    updateNamedSession,
+    deleteNamedSession,
+    loadNamedSession,
+    clearAllSources,
   };
 });

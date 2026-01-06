@@ -88,6 +88,13 @@ pub fn remove_log_source(
     state_guard.remove_source(&source_id)
 }
 
+/// Clear all log sources (for workspace switching).
+#[tauri::command]
+pub fn clear_all_sources(state: State<SharedLogWatcherState>) {
+    let mut state_guard = state.lock().unwrap();
+    state_guard.clear_all_sources();
+}
+
 /// Get all log sources.
 #[tauri::command]
 pub fn get_log_sources(state: State<SharedLogWatcherState>) -> Vec<LogSource> {
@@ -166,4 +173,87 @@ pub fn get_laravel_logs(path: String) -> Vec<String> {
         .into_iter()
         .map(|p| p.to_string_lossy().to_string())
         .collect()
+}
+
+/// Open a file in the configured IDE at a specific line.
+#[tauri::command]
+pub fn open_in_ide(
+    file: String,
+    line: u32,
+    ide: String,
+    custom_command: Option<String>,
+) -> Result<(), String> {
+    use std::process::Command;
+
+    // Check if file exists
+    if !std::path::Path::new(&file).exists() {
+        return Err(format!("File not found: {}", file));
+    }
+
+    let result = match ide.as_str() {
+        "phpstorm" => {
+            // Try different PhpStorm launch methods
+            #[cfg(target_os = "macos")]
+            {
+                // First try the `phpstorm` CLI command
+                let cli_result = Command::new("phpstorm")
+                    .arg("--line")
+                    .arg(line.to_string())
+                    .arg(&file)
+                    .spawn();
+
+                if cli_result.is_ok() {
+                    cli_result
+                } else {
+                    // Fall back to `open -a` on macOS
+                    Command::new("open")
+                        .arg("-a")
+                        .arg("PhpStorm")
+                        .arg("--args")
+                        .arg("--line")
+                        .arg(line.to_string())
+                        .arg(&file)
+                        .spawn()
+                }
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                Command::new("phpstorm")
+                    .arg("--line")
+                    .arg(line.to_string())
+                    .arg(&file)
+                    .spawn()
+            }
+        }
+        "vscode" => Command::new("code")
+            .arg("-g")
+            .arg(format!("{}:{}", file, line))
+            .spawn(),
+        "custom" => {
+            let cmd_template =
+                custom_command.unwrap_or_else(|| "code -g {file}:{line}".to_string());
+            let cmd = cmd_template
+                .replace("{file}", &file)
+                .replace("{line}", &line.to_string());
+
+            // Parse and execute the custom command
+            let parts: Vec<&str> = cmd.split_whitespace().collect();
+            if parts.is_empty() {
+                return Err("Empty custom command".to_string());
+            }
+
+            let program = parts[0];
+            let args = &parts[1..];
+
+            Command::new(program).args(args).spawn()
+        }
+        _ => {
+            return Err(format!("Unknown IDE: {}", ide));
+        }
+    };
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Failed to open IDE: {}", e)),
+    }
 }

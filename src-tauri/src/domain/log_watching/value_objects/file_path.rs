@@ -1,13 +1,33 @@
 //! FilePath value object representing a file system path.
 
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::path::{Path, PathBuf};
 
 /// A validated file system path.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FilePath {
     value: PathBuf,
+}
+
+// Custom serialization to serialize as a plain string
+impl Serialize for FilePath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.value.to_string_lossy())
+    }
+}
+
+impl<'de> Deserialize<'de> for FilePath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        FilePath::new(&s).map_err(serde::de::Error::custom)
+    }
 }
 
 impl FilePath {

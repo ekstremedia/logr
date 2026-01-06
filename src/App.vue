@@ -1,21 +1,81 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
+import { openPath } from '@tauri-apps/plugin-opener';
 import { useLogStore } from '@application/stores/logStore';
 import { useWindowStore } from '@application/stores/windowStore';
 import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
 import { useTheme } from '@presentation/composables/useTheme';
-import { useSearch } from '@presentation/composables/useSearch';
-import { ThemeToggle, FileDropZone } from '@presentation/components/common';
+import { useSharedSearch } from '@presentation/composables/useSearch';
+import {
+  ThemeToggle,
+  FileDropZone,
+  SessionManager,
+  ContextMenu,
+  SettingsModal,
+} from '@presentation/components/common';
+import { useSettingsStore } from '@application/stores/settingsStore';
 import { LogLine } from '@presentation/components/log-viewer';
 import { SearchBar, LogLevelFilter } from '@presentation/components/search';
+import type { LogSource } from '@domain/log-watching/entities/LogSource';
 
 const logStore = useLogStore();
 const windowStore = useWindowStore();
+const settingsStore = useSettingsStore();
+
+// Settings modal state
+const showSettingsModal = ref(false);
+
+// Context menu
+const contextMenuRef = ref<InstanceType<typeof ContextMenu> | null>(null);
+const contextMenuSource = ref<LogSource | null>(null);
+
+const contextMenuItems = computed(() => [
+  {
+    label: 'Open in New Window',
+    action: () => openSourceInWindow(),
+  },
+  {
+    label: 'Open with System',
+    action: () => openSourceWithSystem(),
+  },
+  {
+    label: 'Remove',
+    action: () => removeContextSource(),
+  },
+]);
+
+function showContextMenu(event: MouseEvent, source: LogSource) {
+  event.preventDefault();
+  contextMenuSource.value = source;
+  contextMenuRef.value?.show(event.clientX, event.clientY);
+}
+
+async function openSourceInWindow() {
+  if (contextMenuSource.value) {
+    await windowStore.openLogWindow(contextMenuSource.value.id, contextMenuSource.value.name);
+  }
+}
+
+async function openSourceWithSystem() {
+  if (contextMenuSource.value) {
+    try {
+      await openPath(contextMenuSource.value.path.value);
+    } catch (e) {
+      console.error('Failed to open with system:', e);
+    }
+  }
+}
+
+async function removeContextSource() {
+  if (contextMenuSource.value) {
+    await logStore.removeSource(contextMenuSource.value.id);
+  }
+}
 
 // Initialize theme and search
 useTheme();
-const { filterEntries, isFiltering, resetAll } = useSearch();
+const { filterEntries, isFiltering, resetAll } = useSharedSearch();
 
 const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
 
@@ -23,6 +83,7 @@ const searchBarRef = ref<InstanceType<typeof SearchBar> | null>(null);
 const filteredEntries = computed(() => filterEntries(logStore.activeEntries));
 
 onMounted(async () => {
+  settingsStore.initialize();
   await logStore.initialize();
   await windowStore.initialize();
 });
@@ -31,41 +92,6 @@ onUnmounted(async () => {
   await logStore.cleanup();
   await windowStore.cleanup();
 });
-
-/**
- * Check if a source has a window open.
- */
-function hasOpenWindow(sourceId: string): boolean {
-  return windowStore.getWindowForSource(sourceId) !== null;
-}
-
-/**
- * Get the window index for a source (if open).
- */
-function getWindowIndex(sourceId: string): number | null {
-  const window = windowStore.getWindowForSource(sourceId);
-  return window?.index ?? null;
-}
-
-/**
- * Open a source in its own window.
- */
-async function openInWindow(sourceId: string) {
-  const source = logStore.sources.get(sourceId);
-  if (source) {
-    await windowStore.openLogWindow(sourceId, source.name);
-  }
-}
-
-/**
- * Focus the window for a source.
- */
-async function focusSourceWindow(sourceId: string) {
-  const window = windowStore.getWindowForSource(sourceId);
-  if (window) {
-    await windowStore.focusWindow(window.label);
-  }
-}
 
 async function handleAddLogFile() {
   try {
@@ -121,7 +147,7 @@ async function handleFileDrop(paths: string[]) {
 
 <template>
   <FileDropZone
-    class="min-h-screen flex flex-col bg-surface-50 dark:bg-surface-950"
+    class="h-screen flex flex-col bg-surface-50 dark:bg-surface-950 overflow-hidden"
     @drop="handleFileDrop"
   >
     <!-- Header -->
@@ -133,9 +159,32 @@ async function handleFileDrop(paths: string[]) {
           <img src="/logr.svg" class="w-8 h-8" alt="Logr logo" />
           <h1 class="text-xl font-semibold text-surface-900 dark:text-surface-100">Logr</h1>
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-4">
+          <SessionManager />
           <ThemeToggle />
-          <span class="text-sm text-surface-500 dark:text-surface-400">v0.1.0</span>
+          <!-- Settings button -->
+          <button
+            type="button"
+            class="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors text-surface-500 dark:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-200"
+            title="Settings"
+            @click="showSettingsModal = true"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+              />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
         </div>
       </div>
     </header>
@@ -144,15 +193,15 @@ async function handleFileDrop(paths: string[]) {
     <main class="flex-1 flex overflow-hidden">
       <!-- Sidebar - Sources List -->
       <aside
-        class="w-64 bg-surface-100 dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 flex flex-col"
+        class="w-64 bg-surface-100 dark:bg-surface-900 border-r border-surface-200 dark:border-surface-700 flex flex-col min-h-0 shrink-0"
       >
-        <div class="p-3 border-b border-surface-200 dark:border-surface-700">
+        <div class="p-3 border-b border-surface-200 dark:border-surface-700 shrink-0">
           <h2 class="text-sm font-semibold text-surface-700 dark:text-surface-300 uppercase">
             Log Sources
           </h2>
         </div>
 
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto min-h-0">
           <div
             v-if="logStore.activeSources.length === 0"
             class="p-4 text-center text-surface-500 dark:text-surface-400 text-sm"
@@ -162,18 +211,19 @@ async function handleFileDrop(paths: string[]) {
 
           <div v-else class="p-2 space-y-1">
             <div
-              v-for="source in logStore.activeSources"
+              v-for="(source, index) in logStore.activeSources"
               :key="source.id"
               :class="[
-                'w-full px-3 py-2 rounded-lg transition-colors',
+                'w-full px-3 py-2 rounded-lg transition-colors group',
                 logStore.activeSourceId === source.id
                   ? 'bg-blue-500/10 dark:bg-blue-500/20'
                   : 'hover:bg-surface-200 dark:hover:bg-surface-800',
               ]"
+              @contextmenu="showContextMenu($event, source)"
             >
               <div class="flex items-start justify-between gap-2">
                 <button
-                  class="flex-1 text-left"
+                  class="flex-1 text-left min-w-0"
                   :class="[
                     logStore.activeSourceId === source.id
                       ? 'text-blue-600 dark:text-blue-400'
@@ -181,34 +231,30 @@ async function handleFileDrop(paths: string[]) {
                   ]"
                   @click="logStore.setActiveSource(source.id)"
                 >
-                  <div class="font-medium truncate">{{ source.name }}</div>
-                  <div class="text-xs text-surface-500 dark:text-surface-400 truncate">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-surface-400 dark:text-surface-500 w-4">{{
+                      index + 1
+                    }}</span>
+                    <span class="font-medium truncate">{{ source.name }}</span>
+                  </div>
+                  <div class="text-xs text-surface-500 dark:text-surface-400 truncate ml-6">
                     {{ source.path.value }}
                   </div>
                 </button>
-                <!-- Window badge/button -->
+                <!-- Remove button -->
                 <button
-                  v-if="hasOpenWindow(source.id)"
-                  class="w-6 h-6 rounded bg-blue-500 text-white flex items-center justify-center text-xs font-bold"
-                  :title="`Window open - Alt+${getWindowIndex(source.id)} to focus`"
-                  @click.stop="focusSourceWindow(source.id)"
+                  class="w-6 h-6 rounded flex items-center justify-center text-surface-400 hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  title="Remove source"
+                  @click.stop="logStore.removeSource(source.id)"
                 >
-                  {{ getWindowIndex(source.id) }}
-                </button>
-                <button
-                  v-else
-                  class="w-6 h-6 rounded bg-surface-200 dark:bg-surface-700 text-surface-500 dark:text-surface-400 flex items-center justify-center text-xs hover:bg-surface-300 dark:hover:bg-surface-600"
-                  title="Open in new window"
-                  @click.stop="openInWindow(source.id)"
-                >
-                  +
+                  ✕
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="p-3 border-t border-surface-200 dark:border-surface-700 space-y-2">
+        <div class="p-3 border-t border-surface-200 dark:border-surface-700 space-y-2 shrink-0">
           <button class="w-full btn-primary text-sm" @click="handleAddLogFile">Add File</button>
           <button class="w-full btn text-sm" @click="handleAddLogFolder">Add Folder</button>
         </div>
@@ -293,5 +339,11 @@ async function handleFileDrop(paths: string[]) {
         </span>
       </div>
     </footer>
+
+    <!-- Context Menu -->
+    <ContextMenu ref="contextMenuRef" :items="contextMenuItems" />
+
+    <!-- Settings Modal -->
+    <SettingsModal :open="showSettingsModal" @close="showSettingsModal = false" />
   </FileDropZone>
 </template>

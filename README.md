@@ -9,11 +9,14 @@ A modern, beautiful log tailing application built with Tauri 2.x and Vue 3.
 
 - **Real-time Log Tailing** - Watch log files update in real-time
 - **Multi-Window Support** - Open multiple log files in separate windows
+- **Workspaces** - Save and load named workspaces to quickly switch between projects
+- **Session Persistence** - Automatically restores your log sources on startup
 - **Laravel Log Support** - Auto-detect and follow Laravel daily log rotation
 - **Syntax Highlighting** - Color-coded log levels for easy reading
-- **Keyboard Navigation** - Switch between windows with Alt+1-9
+- **Search & Filter** - Full-text search and log level filtering
+- **Keyboard Navigation** - Switch between sources with Cmd+1-9 (macOS) or Alt+1-9 (Windows/Linux)
+- **Context Menu** - Right-click sources to open in new window, open with system, or remove
 - **Desktop Notifications** - Get notified of errors and important events
-- **Presets/Profiles** - Save and restore your log watching configurations
 - **Cross-Platform** - Works on macOS, Windows, and Linux
 - **Dark Mode** - Beautiful dark theme (light mode also available)
 
@@ -51,14 +54,12 @@ See [Development](#development) section below.
 
 ### Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Alt+1` - `Alt+9` | Switch to log window 1-9 |
-| `Alt+0` | Return to main dashboard |
-| `Cmd/Ctrl+W` | Close current log window |
-| `Cmd/Ctrl+N` | Add new log file |
-| `Cmd/Ctrl+F` | Search/filter logs |
-| `Cmd/Ctrl+?` | Show keyboard shortcuts |
+| Shortcut | macOS | Windows/Linux | Action |
+|----------|-------|---------------|--------|
+| Switch source | `Cmd+1` - `Cmd+9` | `Alt+1` - `Alt+9` | Switch to log source 1-9 |
+| Add file | `Cmd+N` | `Ctrl+N` | Add new log file |
+| Search | `Cmd+F` | `Ctrl+F` | Focus search/filter |
+| Close window | `Cmd+W` | `Ctrl+W` | Close current window |
 
 ## Development
 

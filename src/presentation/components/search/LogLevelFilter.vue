@@ -4,9 +4,9 @@
  */
 import { computed } from 'vue';
 import type { LogLevelType } from '@domain/log-watching/value-objects/LogLevel';
-import { useSearch } from '@presentation/composables/useSearch';
+import { useSharedSearch } from '@presentation/composables/useSearch';
 
-const { logFilter, toggleLevel, showOnlyLevel, resetFilters } = useSearch();
+const { logFilter, toggleLevel, showOnlyLevel, resetFilters } = useSharedSearch();
 
 const levels: { value: LogLevelType; label: string; color: string }[] = [
   {

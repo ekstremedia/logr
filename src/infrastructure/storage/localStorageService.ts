@@ -15,6 +15,7 @@ export const StorageKeys = {
   SETTINGS: 'settings',
   PRESETS: 'presets',
   LAST_SESSION: 'last-session',
+  NAMED_SESSIONS: 'named-sessions',
   NOTIFICATION_CONFIGS: 'notification-configs',
 } as const;
 
@@ -90,12 +91,21 @@ export const StorageService = {
 };
 
 /**
+ * Saved source data for session restoration.
+ */
+export interface SessionSourceData {
+  path: string;
+  type: 'file' | 'folder';
+  pattern?: string;
+  name?: string;
+}
+
+/**
  * Last session data structure.
  */
 export interface LastSessionData {
-  sourceIds: string[];
-  activeSourceId: string | null;
-  windowLabels: string[];
+  sources: SessionSourceData[];
+  activeSourcePath: string | null;
 }
 
 /**
@@ -121,5 +131,66 @@ export const SessionStorage = {
    */
   clearSession(): void {
     StorageService.remove(StorageKeys.LAST_SESSION);
+  },
+};
+
+/**
+ * Named session data structure.
+ */
+export interface NamedSession {
+  id: string;
+  name: string;
+  sources: SessionSourceData[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Named sessions storage helpers.
+ */
+export const NamedSessionStorage = {
+  /**
+   * Get all named sessions.
+   */
+  getSessions(): NamedSession[] {
+    return StorageService.get<NamedSession[]>(StorageKeys.NAMED_SESSIONS) ?? [];
+  },
+
+  /**
+   * Save a named session (creates or updates).
+   */
+  saveSession(session: NamedSession): void {
+    const sessions = this.getSessions();
+    const existingIndex = sessions.findIndex(s => s.id === session.id);
+
+    if (existingIndex >= 0) {
+      sessions[existingIndex] = { ...session, updatedAt: new Date().toISOString() };
+    } else {
+      sessions.push(session);
+    }
+
+    StorageService.set(StorageKeys.NAMED_SESSIONS, sessions);
+  },
+
+  /**
+   * Delete a named session.
+   */
+  deleteSession(sessionId: string): void {
+    const sessions = this.getSessions().filter(s => s.id !== sessionId);
+    StorageService.set(StorageKeys.NAMED_SESSIONS, sessions);
+  },
+
+  /**
+   * Get a session by ID.
+   */
+  getSession(sessionId: string): NamedSession | null {
+    return this.getSessions().find(s => s.id === sessionId) ?? null;
+  },
+
+  /**
+   * Generate a unique session ID.
+   */
+  generateId(): string {
+    return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   },
 };

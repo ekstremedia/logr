@@ -16,7 +16,10 @@ export class FilePath {
    * @returns A new FilePath instance
    * @throws Error if the path is empty
    */
-  static from(path: string): FilePath {
+  static from(path: string | unknown): FilePath {
+    if (typeof path !== 'string') {
+      throw new Error('FilePath must be a string');
+    }
     return new FilePath(path.trim());
   }
 

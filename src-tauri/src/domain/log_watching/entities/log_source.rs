@@ -83,6 +83,11 @@ impl LogSource {
         }
     }
 
+    /// Checks if this source is a folder.
+    pub fn is_folder(&self) -> bool {
+        self.source_type == LogSourceType::Folder
+    }
+
     /// Checks if this source is active.
     pub fn is_active(&self) -> bool {
         self.status == LogSourceStatus::Active

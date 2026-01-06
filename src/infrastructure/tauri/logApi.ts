@@ -135,6 +135,13 @@ export const LogApi = {
   },
 
   /**
+   * Clear all log sources (for workspace switching).
+   */
+  async clearAllSources(): Promise<void> {
+    return invoke<void>('clear_all_sources');
+  },
+
+  /**
    * Get all log sources.
    */
   async getLogSources(): Promise<BackendLogSource[]> {
@@ -159,10 +166,7 @@ export const LogApi = {
    * Read initial content from a log file.
    */
   async readInitialContent(sourceId: string, maxLines?: number): Promise<BackendLogEntry[]> {
-    return invoke<BackendLogEntry[]>('read_initial_content', {
-      sourceId,
-      maxLines,
-    });
+    return invoke<BackendLogEntry[]>('read_initial_content', { sourceId, maxLines });
   },
 
   /**
@@ -198,6 +202,13 @@ export const LogApi = {
    */
   async getLaravelLogs(path: string): Promise<string[]> {
     return invoke<string[]>('get_laravel_logs', { path });
+  },
+
+  /**
+   * Open a file in the configured IDE at a specific line.
+   */
+  async openInIde(file: string, line: number, ide: string, customCommand?: string): Promise<void> {
+    return invoke<void>('open_in_ide', { file, line, ide, customCommand });
   },
 
   /**
