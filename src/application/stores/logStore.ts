@@ -18,7 +18,7 @@ function toLogEntry(entry: BackendLogEntry): LogEntry {
   return LogEntry.create({
     id: entry.id,
     timestamp: entry.timestamp ? new Date(entry.timestamp) : null,
-    level: LogLevel.from(entry.level),
+    level: LogLevel.fromString(entry.level),
     message: entry.message,
     raw: entry.raw,
     lineNumber: entry.line_number,
