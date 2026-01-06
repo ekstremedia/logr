@@ -144,7 +144,7 @@ export class LogWindow {
     return null;
   }
 
-  private toProps(): LogWindowProps {
+  toProps(): LogWindowProps {
     return {
       id: this.id,
       label: this.label,

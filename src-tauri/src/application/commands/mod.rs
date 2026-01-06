@@ -1,5 +1,7 @@
 //! Tauri commands (application use cases).
 
+pub mod window_commands;
+
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -8,6 +10,13 @@ use crate::domain::log_watching::log_source::{LogSource, LogSourceStatus};
 use crate::domain::parsing::LaravelDailyLogDetector;
 
 use super::state::SharedLogWatcherState;
+
+// Re-export window commands
+pub use window_commands::{
+    close_log_window, create_log_window, focus_window, focus_window_by_index, get_all_windows,
+    get_window_for_source, get_window_info, set_window_index, SharedWindowManagerState, WindowInfo,
+    WindowManagerState,
+};
 
 /// Response for add source commands.
 #[derive(Debug, Serialize, Deserialize)]

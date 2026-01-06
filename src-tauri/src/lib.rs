@@ -25,9 +25,11 @@ pub mod application;
 pub mod infrastructure;
 
 use application::commands::{
-    add_log_file, add_log_folder, clear_log_entries, detect_laravel_logs, get_laravel_logs,
-    get_latest_laravel_log, get_log_entries, get_log_source, get_log_sources, read_initial_content,
-    remove_log_source, update_source_status,
+    add_log_file, add_log_folder, clear_log_entries, close_log_window, create_log_window,
+    detect_laravel_logs, focus_window, focus_window_by_index, get_all_windows, get_laravel_logs,
+    get_latest_laravel_log, get_log_entries, get_log_source, get_log_sources,
+    get_window_for_source, get_window_info, read_initial_content, remove_log_source,
+    set_window_index, update_source_status, WindowManagerState,
 };
 use application::state::{start_event_processor, LogWatcherState};
 
@@ -48,12 +50,16 @@ pub fn run() {
         LogWatcherState::new().expect("Failed to create log watcher state"),
     ));
 
+    // Create the window manager state
+    let window_state = Arc::new(Mutex::new(WindowManagerState::new()));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(watcher_state.clone())
+        .manage(window_state)
         .setup(move |app| {
             // Start the event processor
             start_event_processor(app.handle().clone(), watcher_state.clone());
@@ -61,6 +67,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             greet,
+            // Log source commands
             add_log_file,
             add_log_folder,
             remove_log_source,
@@ -70,9 +77,19 @@ pub fn run() {
             read_initial_content,
             clear_log_entries,
             update_source_status,
+            // Laravel detection commands
             detect_laravel_logs,
             get_latest_laravel_log,
             get_laravel_logs,
+            // Window management commands
+            create_log_window,
+            close_log_window,
+            focus_window,
+            focus_window_by_index,
+            get_all_windows,
+            get_window_info,
+            set_window_index,
+            get_window_for_source,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

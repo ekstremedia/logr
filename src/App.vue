@@ -2,16 +2,56 @@
 import { onMounted, onUnmounted } from 'vue';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useLogStore } from '@application/stores/logStore';
+import { useWindowStore } from '@application/stores/windowStore';
+import { useKeyboardShortcuts } from '@presentation/composables/useKeyboardShortcuts';
 
 const logStore = useLogStore();
+const windowStore = useWindowStore();
 
 onMounted(async () => {
   await logStore.initialize();
+  await windowStore.initialize();
 });
 
 onUnmounted(async () => {
   await logStore.cleanup();
+  await windowStore.cleanup();
 });
+
+/**
+ * Check if a source has a window open.
+ */
+function hasOpenWindow(sourceId: string): boolean {
+  return windowStore.getWindowForSource(sourceId) !== null;
+}
+
+/**
+ * Get the window index for a source (if open).
+ */
+function getWindowIndex(sourceId: string): number | null {
+  const window = windowStore.getWindowForSource(sourceId);
+  return window?.index ?? null;
+}
+
+/**
+ * Open a source in its own window.
+ */
+async function openInWindow(sourceId: string) {
+  const source = logStore.sources.get(sourceId);
+  if (source) {
+    await windowStore.openLogWindow(sourceId, source.name);
+  }
+}
+
+/**
+ * Focus the window for a source.
+ */
+async function focusSourceWindow(sourceId: string) {
+  const window = windowStore.getWindowForSource(sourceId);
+  if (window) {
+    await windowStore.focusWindow(window.label);
+  }
+}
 
 async function handleAddLogFile() {
   try {
@@ -44,6 +84,11 @@ async function handleAddLogFolder() {
     console.error('Failed to add log folder:', error);
   }
 }
+
+// Set up keyboard shortcuts (after functions are defined)
+useKeyboardShortcuts({
+  onAddNew: handleAddLogFile,
+});
 
 function formatTimestamp(date: Date | null): string {
   if (!date) return '--:--:--';
@@ -111,22 +156,50 @@ function getLevelClass(level: string): string {
           </div>
 
           <div v-else class="p-2 space-y-1">
-            <button
+            <div
               v-for="source in logStore.activeSources"
               :key="source.id"
               :class="[
-                'w-full text-left px-3 py-2 rounded-lg transition-colors',
+                'w-full px-3 py-2 rounded-lg transition-colors',
                 logStore.activeSourceId === source.id
-                  ? 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                  : 'hover:bg-surface-200 dark:hover:bg-surface-800 text-surface-700 dark:text-surface-300',
+                  ? 'bg-blue-500/10 dark:bg-blue-500/20'
+                  : 'hover:bg-surface-200 dark:hover:bg-surface-800',
               ]"
-              @click="logStore.setActiveSource(source.id)"
             >
-              <div class="font-medium truncate">{{ source.name }}</div>
-              <div class="text-xs text-surface-500 dark:text-surface-400 truncate">
-                {{ source.path.value }}
+              <div class="flex items-start justify-between gap-2">
+                <button
+                  class="flex-1 text-left"
+                  :class="[
+                    logStore.activeSourceId === source.id
+                      ? 'text-blue-600 dark:text-blue-400'
+                      : 'text-surface-700 dark:text-surface-300',
+                  ]"
+                  @click="logStore.setActiveSource(source.id)"
+                >
+                  <div class="font-medium truncate">{{ source.name }}</div>
+                  <div class="text-xs text-surface-500 dark:text-surface-400 truncate">
+                    {{ source.path.value }}
+                  </div>
+                </button>
+                <!-- Window badge/button -->
+                <button
+                  v-if="hasOpenWindow(source.id)"
+                  class="w-6 h-6 rounded bg-blue-500 text-white flex items-center justify-center text-xs font-bold"
+                  :title="`Window open - Alt+${getWindowIndex(source.id)} to focus`"
+                  @click.stop="focusSourceWindow(source.id)"
+                >
+                  {{ getWindowIndex(source.id) }}
+                </button>
+                <button
+                  v-else
+                  class="w-6 h-6 rounded bg-surface-200 dark:bg-surface-700 text-surface-500 dark:text-surface-400 flex items-center justify-center text-xs hover:bg-surface-300 dark:hover:bg-surface-600"
+                  title="Open in new window"
+                  @click.stop="openInWindow(source.id)"
+                >
+                  +
+                </button>
               </div>
-            </button>
+            </div>
           </div>
         </div>
 
