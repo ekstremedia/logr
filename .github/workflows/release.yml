@@ -24,18 +24,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate changelog
-        id: changelog
-        uses: orhun/git-cliff-action@v3
-        with:
-          config: cliff.toml
-          args: --latest --strip header
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create-release
         uses: softprops/action-gh-release@v1
         with:
-          body: ${{ steps.changelog.outputs.content }}
+          body: |
+            ## What's Changed
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/v0.0.1...${{ steps.version.outputs.VERSION }}
           draft: true
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
         env:
