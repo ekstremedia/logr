@@ -54,3 +54,4 @@ Thumbs.db
 # Tauri signing keys (never commit these!)
 *.pem
 *.key
+.signing-keys.md
